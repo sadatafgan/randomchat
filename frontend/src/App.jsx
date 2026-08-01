@@ -55,7 +55,18 @@ function App() {
     // ترک‌های صدا/ویدیوی خودمان را به اتصال اضافه می‌کنیم
     if (localStreamRef.current) {
       localStreamRef.current.getTracks().forEach((track) => {
-        pc.addTrack(track, localStreamRef.current);
+        const sender = pc.addTrack(track, localStreamRef.current);
+
+        // برای ترک ویدیو، به مرورگر می‌گوییم بیت‌ریت (کیفیت) را خیلی پایین نیاورد
+        // این مهم است چون وقتی ترافیک از TURN relay رد می‌شود، مرورگر معمولاً محتاطانه کیفیت را کم می‌کند
+        if (track.kind === "video") {
+          const params = sender.getParameters();
+          if (!params.encodings) params.encodings = [{}];
+          params.encodings[0].maxBitrate = 1_500_000; // حداکثر ۱.۵ مگابیت بر ثانیه
+          sender.setParameters(params).catch((err) => {
+            console.warn("تنظیم بیت‌ریت ممکن نشد:", err);
+          });
+        }
       });
     }
 
@@ -114,7 +125,11 @@ function App() {
     async function init() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: true,
+          video: {
+            width: { ideal: 1280 },
+            height: { ideal: 720 },
+            frameRate: { ideal: 30 },
+          },
           audio: true,
         });
         localStreamRef.current = stream;
