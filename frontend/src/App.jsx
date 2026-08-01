@@ -33,6 +33,72 @@ const STATUS = {
   MEDIA_ERROR: "media_error",
 };
 
+// ---------- آیکون‌ها (SVG سبک، بدون وابستگی به کتابخانه خارجی) ----------
+function IconMic() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0" />
+      <path d="M12 17v4M9 21h6" />
+    </svg>
+  );
+}
+function IconMicOff() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M3 3l18 18" />
+      <path d="M9 5a3 3 0 0 1 6 0v6a3 3 0 0 1-.29 1.29M15 14.5A3 3 0 0 1 9 12v-1" />
+      <path d="M5 10a7 7 0 0 0 10.5 6.06M19 10a7 7 0 0 1-.34 2.17" />
+      <path d="M12 17v4M9 21h6" />
+    </svg>
+  );
+}
+function IconCam() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="2" y="6" width="14" height="12" rx="2.5" />
+      <path d="M16 10l6-3.2v10.4l-6-3.2" />
+    </svg>
+  );
+}
+function IconCamOff() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3l18 18" />
+      <path d="M16 10l6-3.2v10.4l-6-3.2" />
+      <path d="M14.5 6H4.5A2.5 2.5 0 0 0 2 8.5v7A2.5 2.5 0 0 0 4.5 18h6" />
+    </svg>
+  );
+}
+function IconNext() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M4 5v14l9-7z" />
+      <path d="M15 5v14" />
+    </svg>
+  );
+}
+function IconSend() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 11.5L20.5 4l-6 17-3.8-6.7L3 11.5z" />
+    </svg>
+  );
+}
+
+// ---------- میله‌های سیگنال (المان تصویری اصلی برای وضعیت اتصال) ----------
+function SignalMeter({ status }) {
+  const active = status === STATUS.CHATTING;
+  const searching = status === STATUS.WAITING || status === STATUS.CONNECTING;
+  return (
+    <div className={`signal-meter ${active ? "locked" : ""} ${searching ? "scanning" : ""}`}>
+      {[0, 1, 2, 3, 4].map((i) => (
+        <span key={i} className="signal-bar" style={{ "--i": i }} />
+      ))}
+    </div>
+  );
+}
+
 function App() {
   const [status, setStatus] = useState(STATUS.CONNECTING);
   const [messages, setMessages] = useState([]);
@@ -272,39 +338,93 @@ function App() {
     return (
       <div className="app">
         <div className="media-error">
-          <h2>⚠️ دسترسی به دوربین/میکروفون داده نشد</h2>
+          <div className="media-error-icon">
+            <IconCamOff />
+          </div>
+          <h2>دسترسی به دوربین و میکروفون لازم است</h2>
           <p>
-            برای استفاده از چت ویدیویی باید به مرورگر اجازه دسترسی به دوربین و
-            میکروفون را بدهی. صفحه را رفرش کن و روی "Allow" بزن.
+            برای برقراری تماس باید به مرورگر اجازه دسترسی بدهی. صفحه را رفرش
+            کن و روی «Allow» بزن.
           </p>
         </div>
       </div>
     );
   }
 
+  const statusText = {
+    [STATUS.CONNECTING]: "در حال اتصال به سرور",
+    [STATUS.WAITING]: "در جست‌وجوی یک فرکانس زنده",
+    [STATUS.CHATTING]: "سیگنال قفل شد",
+    [STATUS.PARTNER_LEFT]: "طرف مقابل قطع شد",
+  }[status];
+
+  const showOverlay = status !== STATUS.CHATTING;
+
   return (
     <div className="app">
       <header className="header">
-        <h1>💬 RandomChat</h1>
-        <StatusBadge status={status} />
+        <div className="brand">
+          <span className="brand-dot" />
+          <span className="brand-name">RandomChat</span>
+        </div>
+        <div className="status-pill">
+          <SignalMeter status={status} />
+          <span className="status-text">{statusText}</span>
+        </div>
       </header>
 
       <div className="video-container">
         <video ref={remoteVideoRef} className="remote-video" autoPlay playsInline />
-        <video ref={localVideoRef} className="local-video" autoPlay playsInline muted />
+
+        {showOverlay && (
+          <div className="scan-overlay">
+            <div className="scan-lines" />
+            <div className="scan-content">
+              <SignalMeter status={status} />
+              <p className="scan-text">
+                {status === STATUS.PARTNER_LEFT
+                  ? "طرف مقابل ارتباط را قطع کرد"
+                  : "در حال یافتن یک نفر..."}
+              </p>
+              {status === STATUS.PARTNER_LEFT && (
+                <button onClick={handleNext} className="scan-retry">
+                  <IconNext />
+                  نفر بعدی
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        <div className="local-video-frame">
+          <video ref={localVideoRef} className="local-video" autoPlay playsInline muted />
+          <span className="local-video-label">شما</span>
+        </div>
+
         <div className="video-controls">
-          <button onClick={toggleMic} className={micOn ? "" : "off"}>
-            {micOn ? "🎤" : "🔇"}
+          <button
+            onClick={toggleMic}
+            className={`ctrl-btn ${!micOn ? "off" : ""}`}
+            aria-label={micOn ? "قطع میکروفون" : "روشن کردن میکروفون"}
+          >
+            {micOn ? <IconMic /> : <IconMicOff />}
           </button>
-          <button onClick={toggleCam} className={camOn ? "" : "off"}>
-            {camOn ? "📷" : "🚫"}
+          <button
+            onClick={toggleCam}
+            className={`ctrl-btn ${!camOn ? "off" : ""}`}
+            aria-label={camOn ? "قطع دوربین" : "روشن کردن دوربین"}
+          >
+            {camOn ? <IconCam /> : <IconCamOff />}
+          </button>
+          <button onClick={handleNext} className="ctrl-btn next" aria-label="نفر بعدی">
+            <IconNext />
           </button>
         </div>
       </div>
 
       <div className="chat-box">
         {messages.length === 0 && status === STATUS.CHATTING && (
-          <p className="hint">به یک غریبه وصل شدی! سلام کن 👋</p>
+          <p className="hint">به یک غریبه وصل شدی، سلام کن</p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={`bubble ${m.from === "me" ? "me" : "stranger"}`}>
@@ -320,34 +440,19 @@ function App() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={
-            status === STATUS.CHATTING ? "پیامت را بنویس..." : "منتظر پیدا شدن یک نفر..."
-          }
+          placeholder={status === STATUS.CHATTING ? "پیامت را بنویس..." : "منتظر نفر بعدی..."}
           disabled={status !== STATUS.CHATTING}
         />
-        <button onClick={sendMessage} disabled={status !== STATUS.CHATTING}>
-          ارسال
-        </button>
-        <button onClick={handleNext} className="next-btn">
-          نفر بعدی ⏭
+        <button
+          onClick={sendMessage}
+          disabled={status !== STATUS.CHATTING}
+          className="send-btn"
+          aria-label="ارسال"
+        >
+          <IconSend />
         </button>
       </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }) {
-  const map = {
-    [STATUS.CONNECTING]: { text: "در حال اتصال به سرور...", color: "#999" },
-    [STATUS.WAITING]: { text: "در حال پیدا کردن یک نفر...", color: "#f0ad4e" },
-    [STATUS.CHATTING]: { text: "متصل شدی ✅", color: "#5cb85c" },
-    [STATUS.PARTNER_LEFT]: { text: "طرف مقابل رفت. دکمه نفر بعدی را بزن", color: "#d9534f" },
-  };
-  const { text, color } = map[status] || {};
-  return (
-    <span className="status" style={{ color }}>
-      {text}
-    </span>
   );
 }
 
