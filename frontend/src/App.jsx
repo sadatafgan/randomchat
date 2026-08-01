@@ -79,8 +79,21 @@ function App() {
     // هر بار که یک ICE candidate جدید پیدا می‌شود، برای طرف مقابل بفرست
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        // نوع candidate را لاگ می‌کنیم: host (مستقیم) / srflx (از طریق STUN) / relay (از طریق TURN)
+        console.log("پیدا شد ICE candidate از نوع:", event.candidate.type, event.candidate.candidate);
         socketRef.current.emit("webrtc-ice-candidate", event.candidate);
+      } else {
+        console.log("جمع‌آوری ICE candidate ها تمام شد");
       }
+    };
+
+    // اگر مشکلی در رسیدن به سرور STUN/TURN باشد، اینجا خطا می‌دهد
+    pc.onicecandidateerror = (event) => {
+      console.error("خطای ICE candidate:", event.errorCode, event.errorText, event.url);
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log("Peer connection state:", pc.connectionState);
     };
 
     pcRef.current = pc;
