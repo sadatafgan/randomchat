@@ -4,12 +4,29 @@ import { io } from "socket.io-client";
 // آدرس سرور بک‌اند
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
-// سرورهای STUN رایگان گوگل - برای کمک به دو مرورگر تا مسیر اتصال مستقیم را پیدا کنند
-// اگر بعداً با شبکه‌های سخت‌گیرتر (NAT سنگین) مشکل داشتی، باید یک TURN server هم اضافه کنیم
+// سرورهای STUN و TURN
+// STUN فقط به دو طرف کمک می‌کند "آدرس عمومی" خودشان را بفهمند - در خیلی از شبکه‌ها کافیست
+// TURN وقتی لازم می‌شود که اتصال مستقیم P2P ممکن نباشد (NAT سخت‌گیر، شبکه موبایل و...)
+// و ترافیک ویدیو را relay می‌کند. اینجا از یک TURN رایگان عمومی (openrelay) برای تست استفاده می‌کنیم.
 const ICE_SERVERS = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+    {
+      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
   ],
 };
 
@@ -52,6 +69,11 @@ function App() {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
+    };
+
+    // لاگ وضعیت اتصال - برای عیب‌یابی در کنسول مرورگر (F12) مفید است
+    pc.oniceconnectionstatechange = () => {
+      console.log("ICE connection state:", pc.iceConnectionState);
     };
 
     // هر بار که یک ICE candidate جدید پیدا می‌شود، برای طرف مقابل بفرست
