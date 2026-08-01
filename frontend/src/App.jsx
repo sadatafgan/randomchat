@@ -7,25 +7,20 @@ const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 // سرورهای STUN و TURN
 // STUN فقط به دو طرف کمک می‌کند "آدرس عمومی" خودشان را بفهمند - در خیلی از شبکه‌ها کافیست
 // TURN وقتی لازم می‌شود که اتصال مستقیم P2P ممکن نباشد (NAT سخت‌گیر، شبکه موبایل و...)
-// و ترافیک ویدیو را relay می‌کند. اینجا از یک TURN رایگان عمومی (openrelay) برای تست استفاده می‌کنیم.
+// و ترافیک ویدیو را relay می‌کند. اینجا از ExpressTURN (پلن رایگان) استفاده می‌کنیم.
 const ICE_SERVERS = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
     {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "turn:free.expressturn.com:3478",
+      username: "000000002100944551",
+      credential: "qGrDOtBUyMefhZSGfAN4SZoG4rM=",
     },
     {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443?transport=tcp",
-      username: "openrelayproject",
-      credential: "openrelayproject",
+      urls: "turn:free.expressturn.com:3478?transport=tcp",
+      username: "000000002100944551",
+      credential: "qGrDOtBUyMefhZSGfAN4SZoG4rM=",
     },
   ],
 };
