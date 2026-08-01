@@ -5,9 +5,6 @@ import { io } from "socket.io-client";
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
 // سرورهای STUN و TURN
-// STUN فقط به دو طرف کمک می‌کند "آدرس عمومی" خودشان را بفهمند - در خیلی از شبکه‌ها کافیست
-// TURN وقتی لازم می‌شود که اتصال مستقیم P2P ممکن نباشد (NAT سخت‌گیر، شبکه موبایل و...)
-// و ترافیک ویدیو را relay می‌کند. اینجا از ExpressTURN (پلن رایگان) استفاده می‌کنیم.
 const ICE_SERVERS = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -31,9 +28,19 @@ const STATUS = {
   CHATTING: "chatting",
   PARTNER_LEFT: "partner_left",
   MEDIA_ERROR: "media_error",
+  EXITED: "exited",
 };
 
-// ---------- آیکون‌ها (SVG سبک، بدون وابستگی به کتابخانه خارجی) ----------
+// فیلترهای زیبایی زنده - این‌ها روی ترافیک ارسالی هم اعمال می‌شوند (نه فقط پیش‌نمایش خودت)
+const FILTERS = [
+  { id: "natural", label: "طبیعی", css: "none" },
+  { id: "vivid", label: "واضح", css: "saturate(1.45) contrast(1.12) brightness(1.06)" },
+  { id: "warm", label: "گرم", css: "saturate(1.2) sepia(0.15) brightness(1.05) contrast(1.05)" },
+  { id: "cool", label: "سرد", css: "saturate(1.15) hue-rotate(-8deg) brightness(1.03) contrast(1.05)" },
+  { id: "mono", label: "مونو", css: "grayscale(1) contrast(1.15)" },
+];
+
+// ---------- آیکون‌ها (SVG سبک) ----------
 function IconMic() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -85,8 +92,61 @@ function IconSend() {
     </svg>
   );
 }
+function IconMenu() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <circle cx="5" cy="12" r="2" />
+      <circle cx="12" cy="12" r="2" />
+      <circle cx="19" cy="12" r="2" />
+    </svg>
+  );
+}
+function IconFlag() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 3v18" />
+      <path d="M5 4h11l-2 4 2 4H5" />
+    </svg>
+  );
+}
+function IconBlock() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M5.5 5.5l13 13" />
+    </svg>
+  );
+}
+function IconUserPlus() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" />
+      <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+      <path d="M18 8v6M15 11h6" />
+    </svg>
+  );
+}
+function IconExit() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <path d="M16 17l5-5-5-5" />
+      <path d="M21 12H9" />
+    </svg>
+  );
+}
+function IconPalette() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.2 0-.9.7-1.5 1.5-1.5H16a4 4 0 0 0 4-4c0-5.5-4-10-8-10z" />
+      <circle cx="7.5" cy="10.5" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="11" cy="7" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="15.5" cy="8.5" r="1.1" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
 
-// ---------- میله‌های سیگنال (المان تصویری اصلی برای وضعیت اتصال) ----------
+// ---------- میله‌های سیگنال ----------
 function SignalMeter({ status }) {
   const active = status === STATUS.CHATTING;
   const searching = status === STATUS.WAITING || status === STATUS.CONNECTING;
@@ -105,74 +165,90 @@ function App() {
   const [input, setInput] = useState("");
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [filterPickerOpen, setFilterPickerOpen] = useState(false);
+  const [activeFilter, setActiveFilter] = useState("natural");
+  const [toast, setToast] = useState("");
 
   const socketRef = useRef(null);
-  const pcRef = useRef(null); // RTCPeerConnection فعلی
-  const localStreamRef = useRef(null);
-  const localVideoRef = useRef(null);
+  const pcRef = useRef(null);
+  const rawStreamRef = useRef(null); // استریم خام دوربین (صدا + تصویر پردازش‌نشده)
+  const sendStreamRef = useRef(null); // استریمی که واقعاً به partner فرستاده می‌شود (صدا خام + ویدیوی فیلترشده)
+  const rawVideoRef = useRef(null); // ویدیوی مخفی - فقط منبع تصویر برای canvas
+  const canvasRef = useRef(null); // بوم نمایشی - همان چیزی که خودت و partner می‌بینید
+  const localVideoRef = useRef(null); // پیش‌نمایش محلی (نمایش خروجی canvas)
   const remoteVideoRef = useRef(null);
   const messagesEndRef = useRef(null);
-  const pendingCandidatesRef = useRef([]); // ICE candidate هایی که قبل از آماده شدن remoteDescription رسیده‌اند
+  const pendingCandidatesRef = useRef([]);
+  const filterCssRef = useRef("none"); // برای خواندن سریع داخل حلقه‌ی رسم، بدون وابستگی به state
+  const camOnRef = useRef(true);
+  const rafRef = useRef(null);
+  const videoSenderRef = useRef(null); // برای عوض کردن ترک ویدیو موقع next بدون بازسازی canvas
 
-  // ---------- ساخت یک RTCPeerConnection جدید برای هر جفت‌شدن ----------
-  function createPeerConnection(partnerId) {
+  function showToast(text) {
+    setToast(text);
+    setTimeout(() => setToast(""), 2500);
+  }
+
+  // ---------- حلقه‌ی رسم: تصویر خام دوربین را با فیلتر فعلی روی canvas می‌کشد ----------
+  function startDrawLoop() {
+    const canvas = canvasRef.current;
+    const video = rawVideoRef.current;
+    if (!canvas || !video) return;
+    const ctx = canvas.getContext("2d");
+
+    function draw() {
+      if (video.videoWidth && video.videoHeight) {
+        if (canvas.width !== video.videoWidth) canvas.width = video.videoWidth;
+        if (canvas.height !== video.videoHeight) canvas.height = video.videoHeight;
+
+        if (camOnRef.current) {
+          ctx.filter = filterCssRef.current;
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        } else {
+          ctx.filter = "none";
+          ctx.fillStyle = "#0b0c10";
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+      rafRef.current = requestAnimationFrame(draw);
+    }
+    draw();
+  }
+
+  // ---------- ساخت RTCPeerConnection جدید ----------
+  function createPeerConnection() {
     const pc = new RTCPeerConnection(ICE_SERVERS);
 
-    // ترک‌های صدا/ویدیوی خودمان را به اتصال اضافه می‌کنیم
-    if (localStreamRef.current) {
-      localStreamRef.current.getTracks().forEach((track) => {
-        const sender = pc.addTrack(track, localStreamRef.current);
-
-        // برای ترک ویدیو، به مرورگر می‌گوییم بیت‌ریت (کیفیت) را خیلی پایین نیاورد
-        // این مهم است چون وقتی ترافیک از TURN relay رد می‌شود، مرورگر معمولاً محتاطانه کیفیت را کم می‌کند
+    if (sendStreamRef.current) {
+      sendStreamRef.current.getTracks().forEach((track) => {
+        const sender = pc.addTrack(track, sendStreamRef.current);
         if (track.kind === "video") {
+          videoSenderRef.current = sender;
           const params = sender.getParameters();
           if (!params.encodings) params.encodings = [{}];
-          params.encodings[0].maxBitrate = 1_500_000; // حداکثر ۱.۵ مگابیت بر ثانیه
-          sender.setParameters(params).catch((err) => {
-            console.warn("تنظیم بیت‌ریت ممکن نشد:", err);
-          });
+          params.encodings[0].maxBitrate = 1_500_000;
+          sender.setParameters(params).catch(() => {});
         }
       });
     }
 
-    // وقتی ترک ویدیو/صدای طرف مقابل می‌رسد
     pc.ontrack = (event) => {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
 
-    // لاگ وضعیت اتصال - برای عیب‌یابی در کنسول مرورگر (F12) مفید است
-    pc.oniceconnectionstatechange = () => {
-      console.log("ICE connection state:", pc.iceConnectionState);
-    };
-
-    // هر بار که یک ICE candidate جدید پیدا می‌شود، برای طرف مقابل بفرست
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        // نوع candidate را لاگ می‌کنیم: host (مستقیم) / srflx (از طریق STUN) / relay (از طریق TURN)
-        console.log("پیدا شد ICE candidate از نوع:", event.candidate.type, event.candidate.candidate);
         socketRef.current.emit("webrtc-ice-candidate", event.candidate);
-      } else {
-        console.log("جمع‌آوری ICE candidate ها تمام شد");
       }
-    };
-
-    // اگر مشکلی در رسیدن به سرور STUN/TURN باشد، اینجا خطا می‌دهد
-    pc.onicecandidateerror = (event) => {
-      console.error("خطای ICE candidate:", event.errorCode, event.errorText, event.url);
-    };
-
-    pc.onconnectionstatechange = () => {
-      console.log("Peer connection state:", pc.connectionState);
     };
 
     pcRef.current = pc;
     return pc;
   }
 
-  // پاک‌سازی اتصال فعلی (وقتی partner می‌رود یا skip می‌زنیم)
   function cleanupPeerConnection() {
     if (pcRef.current) {
       pcRef.current.close();
@@ -184,50 +260,67 @@ function App() {
     pendingCandidatesRef.current = [];
   }
 
-  // ---------- گرفتن اجازه دوربین/میکروفون و اتصال به سرور ----------
+  function stopEverything() {
+    cleanupPeerConnection();
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    if (rawStreamRef.current) rawStreamRef.current.getTracks().forEach((t) => t.stop());
+    if (sendStreamRef.current) sendStreamRef.current.getTracks().forEach((t) => t.stop());
+    if (socketRef.current) socketRef.current.disconnect();
+  }
+
+  // ---------- راه‌اندازی اولیه ----------
   useEffect(() => {
     let socket;
 
     async function init() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-            frameRate: { ideal: 30 },
-          },
+          video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
           audio: true,
         });
-        localStreamRef.current = stream;
+        rawStreamRef.current = stream;
+
+        if (rawVideoRef.current) {
+          rawVideoRef.current.srcObject = stream;
+          await rawVideoRef.current.play().catch(() => {});
+        }
+
+        startDrawLoop();
+
+        // استریم canvas (تصویر فیلترشده) را با صدای خام ترکیب می‌کنیم -> همین به partner فرستاده می‌شود
+        const canvasStream = canvasRef.current.captureStream(30);
+        const combined = new MediaStream([
+          ...canvasStream.getVideoTracks(),
+          ...stream.getAudioTracks(),
+        ]);
+        sendStreamRef.current = combined;
+
         if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.srcObject = canvasStream;
         }
       } catch (err) {
         console.error("خطا در دسترسی به دوربین/میکروفون:", err);
         setStatus(STATUS.MEDIA_ERROR);
-        return; // بدون دسترسی به دوربین ادامه نمی‌دهیم
+        return;
       }
 
       socket = io(BACKEND_URL);
       socketRef.current = socket;
 
-      socket.on("connect", () => {
-        socket.emit("find-partner");
-      });
+      socket.on("connect", () => socket.emit("find-partner"));
 
       socket.on("waiting", () => {
         cleanupPeerConnection();
         setStatus(STATUS.WAITING);
       });
 
-      socket.on("matched", async ({ partnerId, initiator }) => {
+      socket.on("matched", async ({ initiator }) => {
         setStatus(STATUS.CHATTING);
         setMessages([]);
 
-        const pc = createPeerConnection(partnerId);
+        const pc = createPeerConnection();
 
         if (initiator) {
-          // این طرف باید offer بسازد
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           socket.emit("webrtc-offer", offer);
@@ -239,8 +332,6 @@ function App() {
         if (!pc) pc = createPeerConnection();
 
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
-
-        // هر candidate ای که زودتر رسیده بود را الان اضافه کن
         for (const c of pendingCandidatesRef.current) {
           await pc.addIceCandidate(new RTCIceCandidate(c));
         }
@@ -253,9 +344,7 @@ function App() {
 
       socket.on("webrtc-answer", async (answer) => {
         const pc = pcRef.current;
-        if (pc) {
-          await pc.setRemoteDescription(new RTCSessionDescription(answer));
-        }
+        if (pc) await pc.setRemoteDescription(new RTCSessionDescription(answer));
       });
 
       socket.on("webrtc-ice-candidate", async (candidate) => {
@@ -267,7 +356,6 @@ function App() {
             console.error("خطا در اضافه کردن ICE candidate:", err);
           }
         } else {
-          // هنوز remoteDescription آماده نیست، بعداً اضافه‌اش می‌کنیم
           pendingCandidatesRef.current.push(candidate);
         }
       });
@@ -285,12 +373,9 @@ function App() {
     init();
 
     return () => {
-      cleanupPeerConnection();
-      if (localStreamRef.current) {
-        localStreamRef.current.getTracks().forEach((t) => t.stop());
-      }
-      if (socket) socket.disconnect();
+      stopEverything();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -317,8 +402,8 @@ function App() {
   }
 
   function toggleMic() {
-    if (!localStreamRef.current) return;
-    const track = localStreamRef.current.getAudioTracks()[0];
+    if (!rawStreamRef.current) return;
+    const track = rawStreamRef.current.getAudioTracks()[0];
     if (track) {
       track.enabled = !track.enabled;
       setMicOn(track.enabled);
@@ -326,12 +411,40 @@ function App() {
   }
 
   function toggleCam() {
-    if (!localStreamRef.current) return;
-    const track = localStreamRef.current.getVideoTracks()[0];
-    if (track) {
-      track.enabled = !track.enabled;
-      setCamOn(track.enabled);
-    }
+    const next = !camOnRef.current;
+    camOnRef.current = next;
+    setCamOn(next);
+  }
+
+  function handleSelectFilter(f) {
+    filterCssRef.current = f.css;
+    setActiveFilter(f.id);
+    setFilterPickerOpen(false);
+  }
+
+  function handleReport() {
+    socketRef.current?.emit("report");
+    showToast("گزارش ثبت شد. به نفر بعدی وصل می‌شی");
+    setMenuOpen(false);
+    handleNext();
+  }
+
+  function handleBlock() {
+    socketRef.current?.emit("block");
+    showToast("این کاربر بلاک شد");
+    setMenuOpen(false);
+    handleNext();
+  }
+
+  function handleAddFriend() {
+    showToast("لیست دوستان به‌زودی اضافه می‌شود 🚧");
+    setMenuOpen(false);
+  }
+
+  function handleExit() {
+    stopEverything();
+    setStatus(STATUS.EXITED);
+    setMenuOpen(false);
   }
 
   if (status === STATUS.MEDIA_ERROR) {
@@ -342,10 +455,24 @@ function App() {
             <IconCamOff />
           </div>
           <h2>دسترسی به دوربین و میکروفون لازم است</h2>
-          <p>
-            برای برقراری تماس باید به مرورگر اجازه دسترسی بدهی. صفحه را رفرش
-            کن و روی «Allow» بزن.
-          </p>
+          <p>برای برقراری تماس باید به مرورگر اجازه دسترسی بدهی. صفحه را رفرش کن و روی «Allow» بزن.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === STATUS.EXITED) {
+    return (
+      <div className="app">
+        <div className="media-error">
+          <div className="media-error-icon exited">
+            <IconExit />
+          </div>
+          <h2>از چت خارج شدی</h2>
+          <p>دوربین و میکروفون قطع شدند. هر وقت خواستی دوباره وصل شو.</p>
+          <button className="scan-retry" onClick={() => window.location.reload()}>
+            شروع دوباره
+          </button>
         </div>
       </div>
     );
@@ -359,19 +486,48 @@ function App() {
   }[status];
 
   const showOverlay = status !== STATUS.CHATTING;
+  const canModerate = status === STATUS.CHATTING;
 
   return (
     <div className="app">
+      <video ref={rawVideoRef} style={{ display: "none" }} autoPlay playsInline muted />
+      <canvas ref={canvasRef} style={{ display: "none" }} />
+
       <header className="header">
         <div className="brand">
           <span className="brand-dot" />
           <span className="brand-name">RandomChat</span>
         </div>
-        <div className="status-pill">
-          <SignalMeter status={status} />
-          <span className="status-text">{statusText}</span>
+        <div className="header-right">
+          <div className="status-pill">
+            <SignalMeter status={status} />
+            <span className="status-text">{statusText}</span>
+          </div>
+          <div className="menu-wrap">
+            <button className="icon-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="منو">
+              <IconMenu />
+            </button>
+            {menuOpen && (
+              <div className="dropdown">
+                <button onClick={handleAddFriend}>
+                  <IconUserPlus /> افزودن دوست
+                </button>
+                <button onClick={handleReport} disabled={!canModerate} className="danger">
+                  <IconFlag /> گزارش تخلف
+                </button>
+                <button onClick={handleBlock} disabled={!canModerate} className="danger">
+                  <IconBlock /> مسدود کردن
+                </button>
+                <button onClick={handleExit} className="danger">
+                  <IconExit /> پایان و خروج
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </header>
+
+      {toast && <div className="toast">{toast}</div>}
 
       <div className="video-container">
         <video ref={remoteVideoRef} className="remote-video" autoPlay playsInline />
@@ -382,14 +538,11 @@ function App() {
             <div className="scan-content">
               <SignalMeter status={status} />
               <p className="scan-text">
-                {status === STATUS.PARTNER_LEFT
-                  ? "طرف مقابل ارتباط را قطع کرد"
-                  : "در حال یافتن یک نفر..."}
+                {status === STATUS.PARTNER_LEFT ? "طرف مقابل ارتباط را قطع کرد" : "در حال یافتن یک نفر..."}
               </p>
               {status === STATUS.PARTNER_LEFT && (
                 <button onClick={handleNext} className="scan-retry">
-                  <IconNext />
-                  نفر بعدی
+                  <IconNext /> نفر بعدی
                 </button>
               )}
             </div>
@@ -400,6 +553,20 @@ function App() {
           <video ref={localVideoRef} className="local-video" autoPlay playsInline muted />
           <span className="local-video-label">شما</span>
         </div>
+
+        {filterPickerOpen && (
+          <div className="filter-picker">
+            {FILTERS.map((f) => (
+              <button
+                key={f.id}
+                className={`filter-chip ${activeFilter === f.id ? "active" : ""}`}
+                onClick={() => handleSelectFilter(f)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div className="video-controls">
           <button
@@ -415,6 +582,13 @@ function App() {
             aria-label={camOn ? "قطع دوربین" : "روشن کردن دوربین"}
           >
             {camOn ? <IconCam /> : <IconCamOff />}
+          </button>
+          <button
+            onClick={() => setFilterPickerOpen((v) => !v)}
+            className={`ctrl-btn ${filterPickerOpen ? "active-filter" : ""}`}
+            aria-label="فیلتر تصویر"
+          >
+            <IconPalette />
           </button>
           <button onClick={handleNext} className="ctrl-btn next" aria-label="نفر بعدی">
             <IconNext />
@@ -443,12 +617,7 @@ function App() {
           placeholder={status === STATUS.CHATTING ? "پیامت را بنویس..." : "منتظر نفر بعدی..."}
           disabled={status !== STATUS.CHATTING}
         />
-        <button
-          onClick={sendMessage}
-          disabled={status !== STATUS.CHATTING}
-          className="send-btn"
-          aria-label="ارسال"
-        >
+        <button onClick={sendMessage} disabled={status !== STATUS.CHATTING} className="send-btn" aria-label="ارسال">
           <IconSend />
         </button>
       </div>

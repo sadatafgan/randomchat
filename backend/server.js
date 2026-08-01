@@ -33,14 +33,30 @@ let waitingQueue = [];
 // نگهداری جفت‌های فعلی: partners["A"] = "B"  و  partners["B"] = "A"
 let partners = {};
 
-// تابع کمکی: تلاش برای جفت‌کردن یک کاربر با نفر بعدی در صف
+// نگهداری بلاک‌ها: blockedBy["A"] = Set{"B", "C"} یعنی A این‌ها را بلاک کرده
+let blockedBy = {};
+
+function isBlockedPair(id1, id2) {
+  return (blockedBy[id1] && blockedBy[id1].has(id2)) || (blockedBy[id2] && blockedBy[id2].has(id1));
+}
+
+// تابع کمکی: تلاش برای جفت‌کردن یک کاربر با نفر بعدی در صف (که بلاک نشده باشد)
 function tryMatch(socket) {
   // اگر خودش از قبل در صف بود، اول حذفش کن (جلوگیری از تکرار)
   waitingQueue = waitingQueue.filter((id) => id !== socket.id);
 
-  if (waitingQueue.length > 0) {
-    // یک نفر منتظر پیدا شد -> جفتشان کن
-    const partnerId = waitingQueue.shift();
+  // اولین نفر در صف که بلاک نشده و هنوز آنلاین است را پیدا کن
+  let matchIndex = -1;
+  for (let i = 0; i < waitingQueue.length; i++) {
+    const candidateId = waitingQueue[i];
+    if (!isBlockedPair(socket.id, candidateId) && io.sockets.sockets.get(candidateId)) {
+      matchIndex = i;
+      break;
+    }
+  }
+
+  if (matchIndex !== -1) {
+    const partnerId = waitingQueue.splice(matchIndex, 1)[0];
     const partnerSocket = io.sockets.sockets.get(partnerId);
 
     if (partnerSocket) {
@@ -116,6 +132,23 @@ io.on("connection", (socket) => {
     if (partnerId) io.to(partnerId).emit("webrtc-ice-candidate", candidate);
   });
 
+  // کاربر طرف مقابل را گزارش می‌کند (تخلف)
+  socket.on("report", () => {
+    const partnerId = partners[socket.id];
+    console.log(`🚩 گزارش تخلف ثبت شد: ${socket.id} از ${partnerId} شکایت کرد`);
+    // نکته برای بعد: وقتی دیتابیس اضافه شد، این گزارش‌ها باید ذخیره و بررسی شوند
+  });
+
+  // کاربر طرف مقابل را بلاک می‌کند - دیگر هیچ‌وقت با هم جفت نمی‌شوند (در این سشن)
+  socket.on("block", () => {
+    const partnerId = partners[socket.id];
+    if (partnerId) {
+      if (!blockedBy[socket.id]) blockedBy[socket.id] = new Set();
+      blockedBy[socket.id].add(partnerId);
+      console.log(`🚫 ${socket.id} کاربر ${partnerId} را بلاک کرد`);
+    }
+  });
+
   // کاربر می‌خواهد partner فعلی را رد کند و یک نفر جدید پیدا کند
   socket.on("skip", () => {
     disconnectFromPartner(socket);
@@ -125,6 +158,7 @@ io.on("connection", (socket) => {
   // کاربر قطع می‌شود (تب را بست یا اینترنتش رفت)
   socket.on("disconnect", () => {
     disconnectFromPartner(socket);
+    delete blockedBy[socket.id];
     console.log(`❌ کاربر قطع شد: ${socket.id}`);
   });
 });
