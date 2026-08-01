@@ -47,8 +47,14 @@ function tryMatch(socket) {
       partners[socket.id] = partnerId;
       partners[partnerId] = socket.id;
 
-      socket.emit("matched", { partnerId });
-      partnerSocket.emit("matched", { partnerId: socket.id });
+      // تعیین می‌کنیم کدام طرف "initiator" باشد یعنی اولین کسی که
+      // WebRTC offer را می‌سازد. برای جلوگیری از تداخل (glare)،
+      // بر اساس مقایسه‌ی رشته‌ای id ها تصمیم می‌گیریم - همیشه هر دو طرف
+      // به یک نتیجه‌ی یکسان می‌رسند.
+      const socketIsInitiator = socket.id < partnerId;
+
+      socket.emit("matched", { partnerId, initiator: socketIsInitiator });
+      partnerSocket.emit("matched", { partnerId: socket.id, initiator: !socketIsInitiator });
       return;
     }
   }
@@ -89,6 +95,25 @@ io.on("connection", (socket) => {
     if (partnerId) {
       io.to(partnerId).emit("message", { text, from: "stranger" });
     }
+  });
+
+  // --- رویدادهای سیگنالینگ WebRTC ---
+  // این سرور فقط پیام‌ها را بین دو طرف رد و بدل می‌کند (relay)
+  // خودش هیچ‌کاری با محتوای ویدیو/صدا ندارد؛ ویدیو مستقیم بین دو مرورگر رد و بدل می‌شود (P2P)
+
+  socket.on("webrtc-offer", (offer) => {
+    const partnerId = partners[socket.id];
+    if (partnerId) io.to(partnerId).emit("webrtc-offer", offer);
+  });
+
+  socket.on("webrtc-answer", (answer) => {
+    const partnerId = partners[socket.id];
+    if (partnerId) io.to(partnerId).emit("webrtc-answer", answer);
+  });
+
+  socket.on("webrtc-ice-candidate", (candidate) => {
+    const partnerId = partners[socket.id];
+    if (partnerId) io.to(partnerId).emit("webrtc-ice-candidate", candidate);
   });
 
   // کاربر می‌خواهد partner فعلی را رد کند و یک نفر جدید پیدا کند
