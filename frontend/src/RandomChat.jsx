@@ -478,13 +478,6 @@ function RandomChat() {
     );
   }
 
-  const statusText = {
-    [STATUS.CONNECTING]: "در حال اتصال به سرور",
-    [STATUS.WAITING]: "در جست‌وجوی یک فرکانس زنده",
-    [STATUS.CHATTING]: "سیگنال قفل شد",
-    [STATUS.PARTNER_LEFT]: "طرف مقابل قطع شد",
-  }[status];
-
   const showOverlay = status !== STATUS.CHATTING;
   const canModerate = status === STATUS.CHATTING;
 
@@ -493,18 +486,17 @@ function RandomChat() {
       <video ref={rawVideoRef} style={{ display: "none" }} autoPlay playsInline muted />
       <canvas ref={canvasRef} style={{ display: "none" }} />
 
-      <header className="header">
-        <div className="brand">
-          <span className="brand-dot" />
-          <span className="brand-name">RandomChat</span>
-        </div>
-        <div className="header-right">
-          <div className="status-pill">
-            <SignalMeter status={status} />
-            <span className="status-text">{statusText}</span>
+      <div className="video-container fullscreen">
+        <video ref={remoteVideoRef} className="remote-video" autoPlay playsInline />
+
+        {/* هدر شناور روی ویدیو */}
+        <div className="live-header">
+          <div className="brand">
+            <span className="brand-dot" />
+            <span className="brand-name">RandomChat</span>
           </div>
           <div className="menu-wrap">
-            <button className="icon-btn" onClick={() => setMenuOpen((v) => !v)} aria-label="منو">
+            <button className="icon-btn ghost" onClick={() => setMenuOpen((v) => !v)} aria-label="منو">
               <IconMenu />
             </button>
             {menuOpen && (
@@ -525,12 +517,8 @@ function RandomChat() {
             )}
           </div>
         </div>
-      </header>
 
-      {toast && <div className="toast">{toast}</div>}
-
-      <div className="video-container">
-        <video ref={remoteVideoRef} className="remote-video" autoPlay playsInline />
+        {toast && <div className="toast">{toast}</div>}
 
         {showOverlay && (
           <div className="scan-overlay">
@@ -554,6 +542,19 @@ function RandomChat() {
           <span className="local-video-label">شما</span>
         </div>
 
+        {/* چت روی ویدیو - مثل کامنت‌های لایو اینستاگرام */}
+        <div className="live-chat-overlay">
+          {messages.length === 0 && status === STATUS.CHATTING && (
+            <p className="hint hint-overlay">به یک غریبه وصل شدی، سلام کن</p>
+          )}
+          {messages.map((m, i) => (
+            <div key={i} className={`live-bubble ${m.from === "me" ? "me" : "stranger"}`}>
+              {m.text}
+            </div>
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+
         {filterPickerOpen && (
           <div className="filter-picker">
             {FILTERS.map((f) => (
@@ -568,58 +569,54 @@ function RandomChat() {
           </div>
         )}
 
-        <div className="video-controls">
-          <button
-            onClick={toggleMic}
-            className={`ctrl-btn ${!micOn ? "off" : ""}`}
-            aria-label={micOn ? "قطع میکروفون" : "روشن کردن میکروفون"}
-          >
-            {micOn ? <IconMic /> : <IconMicOff />}
-          </button>
-          <button
-            onClick={toggleCam}
-            className={`ctrl-btn ${!camOn ? "off" : ""}`}
-            aria-label={camOn ? "قطع دوربین" : "روشن کردن دوربین"}
-          >
-            {camOn ? <IconCam /> : <IconCamOff />}
-          </button>
-          <button
-            onClick={() => setFilterPickerOpen((v) => !v)}
-            className={`ctrl-btn ${filterPickerOpen ? "active-filter" : ""}`}
-            aria-label="فیلتر تصویر"
-          >
-            <IconPalette />
-          </button>
-          <button onClick={handleNext} className="ctrl-btn next" aria-label="نفر بعدی">
-            <IconNext />
-          </button>
-        </div>
-      </div>
-
-      <div className="chat-box">
-        {messages.length === 0 && status === STATUS.CHATTING && (
-          <p className="hint">به یک غریبه وصل شدی، سلام کن</p>
-        )}
-        {messages.map((m, i) => (
-          <div key={i} className={`bubble ${m.from === "me" ? "me" : "stranger"}`}>
-            {m.text}
+        {/* نوار پایین: کنترل‌ها + ورودی پیام، همه شناور روی ویدیو */}
+        <div className="live-bottom-bar">
+          <div className="video-controls">
+            <button
+              onClick={toggleMic}
+              className={`ctrl-btn ${!micOn ? "off" : ""}`}
+              aria-label={micOn ? "قطع میکروفون" : "روشن کردن میکروفون"}
+            >
+              {micOn ? <IconMic /> : <IconMicOff />}
+            </button>
+            <button
+              onClick={toggleCam}
+              className={`ctrl-btn ${!camOn ? "off" : ""}`}
+              aria-label={camOn ? "قطع دوربین" : "روشن کردن دوربین"}
+            >
+              {camOn ? <IconCam /> : <IconCamOff />}
+            </button>
+            <button
+              onClick={() => setFilterPickerOpen((v) => !v)}
+              className={`ctrl-btn ${filterPickerOpen ? "active-filter" : ""}`}
+              aria-label="فیلتر تصویر"
+            >
+              <IconPalette />
+            </button>
+            <button onClick={handleNext} className="ctrl-btn next" aria-label="نفر بعدی">
+              <IconNext />
+            </button>
           </div>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
 
-      <div className="controls">
-        <input
-          type="text"
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={status === STATUS.CHATTING ? "پیامت را بنویس..." : "منتظر نفر بعدی..."}
-          disabled={status !== STATUS.CHATTING}
-        />
-        <button onClick={sendMessage} disabled={status !== STATUS.CHATTING} className="send-btn" aria-label="ارسال">
-          <IconSend />
-        </button>
+          <div className="controls live-controls">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder={status === STATUS.CHATTING ? "پیامت را بنویس..." : "منتظر نفر بعدی..."}
+              disabled={status !== STATUS.CHATTING}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={status !== STATUS.CHATTING}
+              className="send-btn"
+              aria-label="ارسال"
+            >
+              <IconSend />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

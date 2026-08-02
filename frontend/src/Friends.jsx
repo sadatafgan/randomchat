@@ -72,7 +72,7 @@ export default function Friends({ session, onOpenChat }) {
     const { data, error } = await supabase
       .from("profiles")
       .select("id, username")
-      .ilike("username", query.trim())
+      .ilike("username", `%${query.trim()}%`)
       .neq("id", myId)
       .limit(1)
       .maybeSingle();

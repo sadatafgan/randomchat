@@ -92,6 +92,103 @@ body {
   background: var(--bg-base);
 }
 
+/* ---------- ویدیوی تمام‌صفحه (سبک لایو اینستاگرام) ---------- */
+.video-container.fullscreen {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  aspect-ratio: auto;
+  background: #000;
+  overflow: hidden;
+}
+
+.live-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.55), transparent);
+}
+
+.icon-btn.ghost {
+  background: rgba(20, 21, 28, 0.55);
+  backdrop-filter: blur(6px);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+/* ---------- چت روی ویدیو (کامنت‌های شناور مثل لایو اینستاگرام) ---------- */
+.live-chat-overlay {
+  position: absolute;
+  bottom: 128px;
+  left: 12px;
+  width: 68%;
+  max-height: 34%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  z-index: 15;
+  mask-image: linear-gradient(to top, black 70%, transparent 100%);
+  -webkit-mask-image: linear-gradient(to top, black 70%, transparent 100%);
+}
+
+.live-bubble {
+  align-self: flex-start;
+  max-width: 100%;
+  padding: 7px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13.5px;
+  line-height: 1.5;
+  background: rgba(20, 21, 28, 0.6);
+  backdrop-filter: blur(6px);
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.live-bubble.me {
+  background: rgba(45, 212, 191, 0.75);
+  color: #06231f;
+  font-weight: 500;
+}
+
+.hint-overlay {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 12.5px;
+  margin: 0;
+}
+
+/* ---------- نوار پایین شناور: کنترل‌ها + ورودی پیام ---------- */
+.live-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px 14px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.6), transparent);
+}
+
+.live-controls {
+  padding: 0;
+  border-top: none;
+  background: transparent;
+}
+
+.live-controls input {
+  background: rgba(20, 21, 28, 0.55);
+  backdrop-filter: blur(8px);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
 /* ---------- Header ---------- */
 .header {
   position: relative;
@@ -237,7 +334,7 @@ body {
 /* ---------- Filter picker ---------- */
 .filter-picker {
   position: absolute;
-  bottom: 70px;
+  bottom: 148px;
   left: 0;
   right: 0;
   display: flex;
@@ -402,10 +499,10 @@ body {
 /* ---------- Local video (خودت) ---------- */
 .local-video-frame {
   position: absolute;
-  bottom: 84px;
+  top: 64px;
   left: 12px;
-  width: 92px;
-  height: 122px;
+  width: 88px;
+  height: 118px;
   border-radius: var(--radius-sm);
   overflow: hidden;
   border: 1.5px solid var(--border-subtle);
@@ -434,10 +531,7 @@ body {
 
 /* ---------- Controls over video ---------- */
 .video-controls {
-  position: absolute;
-  bottom: 14px;
-  left: 0;
-  right: 0;
+  position: static;
   display: flex;
   justify-content: center;
   gap: 12px;
