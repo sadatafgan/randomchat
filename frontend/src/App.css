@@ -15,6 +15,8 @@
   --signal-search: #ffb020; /* کهربایی - در حال جستجو */
   --signal-lock: #2dd4bf; /* فیروزه‌ای - سیگنال قفل شده */
   --signal-danger: #ff5470; /* قرمز مرجانی - قطع/رد */
+  --brand-violet: #8b5cf6; /* بنفش هویت اصلی برند */
+  --brand-violet-deep: #6d28d9;
 
   --font-fa: "Vazirmatn", "Tahoma", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
@@ -53,22 +55,33 @@ body {
   flex-shrink: 0;
 }
 
+.tab-bar.bottom {
+  border-bottom: none;
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+}
+
+.tab-bar.bottom button.active {
+  border-bottom: none;
+  border-top: 2px solid var(--brand-violet);
+}
+
 .tab-bar button {
   flex: 1;
-  padding: 13px 6px;
+  padding: 11px 4px;
   background: transparent;
   border: none;
   color: var(--text-muted);
   font-family: var(--font-fa);
-  font-size: 12.5px;
+  font-size: 11px;
   cursor: pointer;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
 }
 
 .tab-bar button.active {
-  color: var(--signal-lock);
-  border-bottom-color: var(--signal-lock);
+  color: var(--brand-violet);
+  border-bottom-color: var(--brand-violet);
   font-weight: 600;
 }
 
@@ -211,8 +224,8 @@ body {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--signal-lock);
-  box-shadow: 0 0 8px var(--signal-lock);
+  background: var(--brand-violet);
+  box-shadow: 0 0 8px var(--brand-violet);
 }
 
 .brand-name {
@@ -785,8 +798,8 @@ input:focus-visible {
 }
 
 .auth-tabs button.active {
-  background: var(--signal-lock);
-  color: #06231f;
+  background: var(--brand-violet);
+  color: white;
   font-weight: 600;
 }
 
@@ -808,7 +821,7 @@ input:focus-visible {
 }
 
 .auth-form input:focus {
-  border-color: var(--signal-lock);
+  border-color: var(--brand-violet);
 }
 
 .auth-error {
@@ -828,8 +841,8 @@ input:focus-visible {
   padding: 12px;
   border-radius: var(--radius-sm);
   border: none;
-  background: var(--signal-lock);
-  color: #06231f;
+  background: var(--brand-violet);
+  color: white;
   font-family: var(--font-fa);
   font-weight: 700;
   font-size: 14.5px;
@@ -923,8 +936,8 @@ input:focus-visible {
   padding: 6px 12px;
   border-radius: 999px;
   border: none;
-  background: var(--signal-lock);
-  color: #06231f;
+  background: var(--brand-violet);
+  color: white;
   font-family: var(--font-fa);
   font-size: 12px;
   font-weight: 600;
@@ -990,8 +1003,8 @@ input:focus-visible {
   width: 68px;
   height: 68px;
   border-radius: 50%;
-  background: var(--signal-lock);
-  color: #06231f;
+  background: var(--brand-violet);
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1051,4 +1064,179 @@ input:focus-visible {
   line-height: 1.8;
   max-width: 260px;
   margin: 0;
+}
+
+/* ===========================================================
+   نوار فیلتر جستجو (جنسیت/منطقه/سن) روی ویدیو
+   =========================================================== */
+.match-filter-bar {
+  position: absolute;
+  top: 58px;
+  left: 12px;
+  right: 12px;
+  z-index: 18;
+  display: flex;
+  gap: 8px;
+}
+
+.filter-pill {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  background: rgba(20, 21, 28, 0.55);
+  backdrop-filter: blur(8px);
+  color: var(--text-primary);
+  font-family: var(--font-fa);
+  font-size: 11.5px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.gender-dropdown {
+  top: 38px;
+  left: 0;
+  width: 140px;
+}
+
+.gender-dropdown button.picked {
+  color: var(--brand-violet);
+  font-weight: 700;
+}
+
+/* ===========================================================
+   فیلتر تصویر به‌صورت دایره‌ای (مثل Normal/Lomo/Toon...)
+   =========================================================== */
+.filter-thumb-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.filter-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  background: linear-gradient(135deg, #3a3a4a, #1c1d27);
+}
+
+.filter-thumb-btn.active .filter-thumb {
+  border-color: var(--brand-violet);
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.35);
+}
+
+.filter-thumb-label {
+  font-size: 10.5px;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.filter-thumb-btn.active .filter-thumb-label {
+  color: var(--brand-violet);
+  font-weight: 700;
+}
+
+/* پیش‌نمایش رنگی هر فیلتر روی خود دایره، بدون نیاز به عکس واقعی */
+.swatch-natural {
+  background: linear-gradient(135deg, #4a4a5a, #23232f);
+}
+.swatch-vivid {
+  background: linear-gradient(135deg, #ff9a5a, #ff5470);
+  filter: saturate(1.5) contrast(1.15);
+}
+.swatch-warm {
+  background: linear-gradient(135deg, #ffcf86, #d98a4a);
+}
+.swatch-cool {
+  background: linear-gradient(135deg, #7dd3fc, #6366f1);
+}
+.swatch-mono {
+  background: linear-gradient(135deg, #cfcfcf, #4b4b4b);
+}
+
+/* ===========================================================
+   انتخاب جنسیت در صفحه اکانت
+   =========================================================== */
+.gender-selector {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.gender-selector button {
+  flex: 1;
+  padding: 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-family: var(--font-fa);
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.gender-selector button.active {
+  background: var(--brand-violet);
+  border-color: var(--brand-violet);
+  color: white;
+  font-weight: 600;
+}
+
+/* ===========================================================
+   تاریخچه چت‌های ویدیویی
+   =========================================================== */
+.history-screen {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+}
+
+.history-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--brand-violet);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  flex-shrink: 0;
+}
+
+.history-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.history-name {
+  font-size: 13.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-time {
+  font-size: 11px;
+  color: var(--text-faint);
 }

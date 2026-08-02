@@ -6,10 +6,12 @@ import FriendChat from "./FriendChat";
 import RandomChat from "./RandomChat";
 import Account from "./Account";
 import Settings from "./Settings";
+import History from "./History";
 
 const TABS = [
   { id: "random", label: "چت رندوم" },
   { id: "friends", label: "دوستان" },
+  { id: "history", label: "تاریخچه" },
   { id: "account", label: "اکانت" },
   { id: "settings", label: "تنظیمات" },
 ];
@@ -46,23 +48,24 @@ export default function App() {
 
   return (
     <div className="shell">
-      <nav className="tab-bar">
+      <div className="tab-content">
+        {tab === "random" && <RandomChat session={session} />}
+        {tab === "friends" && !openFriend && <Friends session={session} onOpenChat={setOpenFriend} />}
+        {tab === "friends" && openFriend && (
+          <FriendChat session={session} friend={openFriend} onBack={() => setOpenFriend(null)} />
+        )}
+        {tab === "history" && <History session={session} onAddFriend={() => goTo("friends")} />}
+        {tab === "account" && <Account session={session} />}
+        {tab === "settings" && <Settings />}
+      </div>
+
+      <nav className="tab-bar bottom">
         {TABS.map((t) => (
           <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => goTo(t.id)}>
             {t.label}
           </button>
         ))}
       </nav>
-
-      <div className="tab-content">
-        {tab === "random" && <RandomChat />}
-        {tab === "friends" && !openFriend && <Friends session={session} onOpenChat={setOpenFriend} />}
-        {tab === "friends" && openFriend && (
-          <FriendChat session={session} friend={openFriend} onBack={() => setOpenFriend(null)} />
-        )}
-        {tab === "account" && <Account session={session} />}
-        {tab === "settings" && <Settings />}
-      </div>
     </div>
   );
 }

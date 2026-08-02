@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
+import { supabase } from "./lib/supabaseClient";
 
 // آدرس سرور بک‌اند
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
@@ -40,7 +41,7 @@ const FILTERS = [
   { id: "mono", label: "مونو", css: "grayscale(1) contrast(1.15)" },
 ];
 
-// ---------- آیکون‌ها (SVG سبک) ----------
+const GENDER_LABEL = { all: "جنسیت: همه", male: "جنسیت: مرد", female: "جنسیت: زن" };
 function IconMic() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -159,7 +160,7 @@ function SignalMeter({ status }) {
   );
 }
 
-function RandomChat() {
+function RandomChat({ session }) {
   const [status, setStatus] = useState(STATUS.CONNECTING);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -169,6 +170,14 @@ function RandomChat() {
   const [filterPickerOpen, setFilterPickerOpen] = useState(false);
   const [activeFilter, setActiveFilter] = useState("natural");
   const [toast, setToast] = useState("");
+  const [wantGender, setWantGender] = useState("all"); // فیلتر جنسیت: all | male | female
+  const [genderPickerOpen, setGenderPickerOpen] = useState(false);
+
+  const myProfileRef = useRef({ userId: null, username: null, gender: "unspecified" });
+  const partnerInfoRef = useRef({ userId: null, username: null });
+  const historyLoggedRef = useRef(false);
+  const wantGenderRef = useRef("all");
+  const sendFindPartnerRef = useRef(() => {});
 
   const socketRef = useRef(null);
   const pcRef = useRef(null);
@@ -273,6 +282,20 @@ function RandomChat() {
     let socket;
 
     async function init() {
+      // اول پروفایل خودمان (نام کاربری، جنسیت) را از دیتابیس می‌گیریم
+      if (session?.user?.id) {
+        const { data } = await supabase
+          .from("profiles")
+          .select("username, gender")
+          .eq("id", session.user.id)
+          .maybeSingle();
+        myProfileRef.current = {
+          userId: session.user.id,
+          username: data?.username || null,
+          gender: data?.gender || "unspecified",
+        };
+      }
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 30 } },
@@ -307,16 +330,28 @@ function RandomChat() {
       socket = io(BACKEND_URL);
       socketRef.current = socket;
 
-      socket.on("connect", () => socket.emit("find-partner"));
+      function sendFindPartner() {
+        socket.emit("find-partner", {
+          userId: myProfileRef.current.userId,
+          username: myProfileRef.current.username,
+          gender: myProfileRef.current.gender,
+          wantGender: wantGenderRef.current,
+        });
+      }
+      sendFindPartnerRef.current = sendFindPartner;
+
+      socket.on("connect", sendFindPartner);
 
       socket.on("waiting", () => {
         cleanupPeerConnection();
         setStatus(STATUS.WAITING);
       });
 
-      socket.on("matched", async ({ initiator }) => {
+      socket.on("matched", async ({ initiator, partnerUserId, partnerUsername }) => {
         setStatus(STATUS.CHATTING);
         setMessages([]);
+        partnerInfoRef.current = { userId: partnerUserId, username: partnerUsername };
+        historyLoggedRef.current = false;
 
         const pc = createPeerConnection();
 
@@ -324,6 +359,19 @@ function RandomChat() {
           const offer = await pc.createOffer();
           await pc.setLocalDescription(offer);
           socket.emit("webrtc-offer", offer);
+
+          // فقط یک طرف (initiator) تاریخچه را ثبت می‌کند تا دو بار ذخیره نشود
+          if (myProfileRef.current.userId && partnerUserId && !historyLoggedRef.current) {
+            historyLoggedRef.current = true;
+            supabase
+              .from("call_history")
+              .insert({
+                user_a: myProfileRef.current.userId,
+                user_b: partnerUserId,
+                partner_username: partnerUsername,
+              })
+              .then(() => {});
+          }
         }
       });
 
@@ -392,9 +440,21 @@ function RandomChat() {
 
   function handleNext() {
     cleanupPeerConnection();
-    socketRef.current.emit("skip");
+    sendFindPartnerRef.current();
     setMessages([]);
     setStatus(STATUS.WAITING);
+  }
+
+  function handleWantGenderChange(g) {
+    wantGenderRef.current = g;
+    setWantGender(g);
+    setGenderPickerOpen(false);
+    // اگر منتظریم یا تازه وصل شدیم، جستجو را با فیلتر جدید تازه کن
+    if (status === STATUS.WAITING || status === STATUS.CONNECTING) {
+      sendFindPartnerRef.current();
+    } else {
+      showToast("فیلتر برای جستجوی بعدی اعمال می‌شود");
+    }
   }
 
   function handleKeyDown(e) {
@@ -518,6 +578,34 @@ function RandomChat() {
           </div>
         </div>
 
+        {/* نوار فیلتر جستجو: جنسیت (فعال)، منطقه/سن (به‌زودی) */}
+        <div className="match-filter-bar">
+          <div className="menu-wrap">
+            <button className="filter-pill" onClick={() => setGenderPickerOpen((v) => !v)}>
+              {GENDER_LABEL[wantGender]}
+            </button>
+            {genderPickerOpen && (
+              <div className="dropdown gender-dropdown">
+                <button onClick={() => handleWantGenderChange("all")} className={wantGender === "all" ? "picked" : ""}>
+                  همه
+                </button>
+                <button onClick={() => handleWantGenderChange("male")} className={wantGender === "male" ? "picked" : ""}>
+                  مرد
+                </button>
+                <button onClick={() => handleWantGenderChange("female")} className={wantGender === "female" ? "picked" : ""}>
+                  زن
+                </button>
+              </div>
+            )}
+          </div>
+          <button className="filter-pill" onClick={() => showToast("فیلتر منطقه به‌زودی اضافه می‌شود 🚧")}>
+            منطقه
+          </button>
+          <button className="filter-pill" onClick={() => showToast("فیلتر سن به‌زودی اضافه می‌شود 🚧")}>
+            سن
+          </button>
+        </div>
+
         {toast && <div className="toast">{toast}</div>}
 
         {showOverlay && (
@@ -560,10 +648,11 @@ function RandomChat() {
             {FILTERS.map((f) => (
               <button
                 key={f.id}
-                className={`filter-chip ${activeFilter === f.id ? "active" : ""}`}
+                className={`filter-thumb-btn ${activeFilter === f.id ? "active" : ""}`}
                 onClick={() => handleSelectFilter(f)}
               >
-                {f.label}
+                <span className={`filter-thumb swatch-${f.id}`} />
+                <span className="filter-thumb-label">{f.label}</span>
               </button>
             ))}
           </div>

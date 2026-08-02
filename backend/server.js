@@ -36,20 +36,38 @@ let partners = {};
 // نگهداری بلاک‌ها: blockedBy["A"] = Set{"B", "C"} یعنی A این‌ها را بلاک کرده
 let blockedBy = {};
 
+// نگهداری اطلاعات اکانت هر socket: profiles["A"] = { userId, username, gender, wantGender }
+let profiles = {};
+
 function isBlockedPair(id1, id2) {
   return (blockedBy[id1] && blockedBy[id1].has(id2)) || (blockedBy[id2] && blockedBy[id2].has(id1));
 }
 
-// تابع کمکی: تلاش برای جفت‌کردن یک کاربر با نفر بعدی در صف (که بلاک نشده باشد)
+// آیا این دو نفر از نظر جنسیت با ترجیح همدیگر جور هستند؟
+function isGenderCompatible(id1, id2) {
+  const p1 = profiles[id1];
+  const p2 = profiles[id2];
+  if (!p1 || !p2) return true; // اگر اطلاعاتی نبود، محدودیتی اعمال نکن
+
+  const p1Wants = !p1.wantGender || p1.wantGender === "all" || p1.wantGender === p2.gender;
+  const p2Wants = !p2.wantGender || p2.wantGender === "all" || p2.wantGender === p1.gender;
+  return p1Wants && p2Wants;
+}
+
+// تابع کمکی: تلاش برای جفت‌کردن یک کاربر با نفر بعدی در صف (که بلاک نشده و جنسیتش جور باشد)
 function tryMatch(socket) {
   // اگر خودش از قبل در صف بود، اول حذفش کن (جلوگیری از تکرار)
   waitingQueue = waitingQueue.filter((id) => id !== socket.id);
 
-  // اولین نفر در صف که بلاک نشده و هنوز آنلاین است را پیدا کن
+  // اولین نفر در صف که بلاک نشده، جنسیتش جور است، و هنوز آنلاین است را پیدا کن
   let matchIndex = -1;
   for (let i = 0; i < waitingQueue.length; i++) {
     const candidateId = waitingQueue[i];
-    if (!isBlockedPair(socket.id, candidateId) && io.sockets.sockets.get(candidateId)) {
+    if (
+      !isBlockedPair(socket.id, candidateId) &&
+      isGenderCompatible(socket.id, candidateId) &&
+      io.sockets.sockets.get(candidateId)
+    ) {
       matchIndex = i;
       break;
     }
@@ -69,8 +87,21 @@ function tryMatch(socket) {
       // به یک نتیجه‌ی یکسان می‌رسند.
       const socketIsInitiator = socket.id < partnerId;
 
-      socket.emit("matched", { partnerId, initiator: socketIsInitiator });
-      partnerSocket.emit("matched", { partnerId: socket.id, initiator: !socketIsInitiator });
+      const myProfile = profiles[socket.id] || {};
+      const partnerProfile = profiles[partnerId] || {};
+
+      socket.emit("matched", {
+        partnerId,
+        initiator: socketIsInitiator,
+        partnerUserId: partnerProfile.userId || null,
+        partnerUsername: partnerProfile.username || null,
+      });
+      partnerSocket.emit("matched", {
+        partnerId: socket.id,
+        initiator: !socketIsInitiator,
+        partnerUserId: myProfile.userId || null,
+        partnerUsername: myProfile.username || null,
+      });
       return;
     }
   }
@@ -99,8 +130,16 @@ function disconnectFromPartner(socket) {
 io.on("connection", (socket) => {
   console.log(`✅ کاربر متصل شد: ${socket.id}`);
 
-  // کاربر درخواست پیدا کردن partner می‌دهد
-  socket.on("find-partner", () => {
+  // کاربر درخواست پیدا کردن partner می‌دهد - همراه با اطلاعات اکانتش
+  socket.on("find-partner", (profile) => {
+    if (profile) {
+      profiles[socket.id] = {
+        userId: profile.userId || null,
+        username: profile.username || null,
+        gender: profile.gender || "unspecified",
+        wantGender: profile.wantGender || "all",
+      };
+    }
     disconnectFromPartner(socket); // برای اطمینان، هر وضعیت قبلی را پاک کن
     tryMatch(socket);
   });
@@ -159,6 +198,7 @@ io.on("connection", (socket) => {
   socket.on("disconnect", () => {
     disconnectFromPartner(socket);
     delete blockedBy[socket.id];
+    delete profiles[socket.id];
     console.log(`❌ کاربر قطع شد: ${socket.id}`);
   });
 });
