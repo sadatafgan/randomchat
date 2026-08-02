@@ -4,11 +4,20 @@ import Auth from "./Auth";
 import Friends from "./Friends";
 import FriendChat from "./FriendChat";
 import RandomChat from "./RandomChat";
+import Account from "./Account";
+import Settings from "./Settings";
+
+const TABS = [
+  { id: "random", label: "چت رندوم" },
+  { id: "friends", label: "دوستان" },
+  { id: "account", label: "اکانت" },
+  { id: "settings", label: "تنظیمات" },
+];
 
 export default function App() {
   const [session, setSession] = useState(null);
   const [loadingSession, setLoadingSession] = useState(true);
-  const [tab, setTab] = useState("random"); // random | friends
+  const [tab, setTab] = useState("random");
   const [openFriend, setOpenFriend] = useState(null);
 
   useEffect(() => {
@@ -30,30 +39,19 @@ export default function App() {
     return <Auth />;
   }
 
+  function goTo(tabId) {
+    setTab(tabId);
+    setOpenFriend(null);
+  }
+
   return (
     <div className="shell">
       <nav className="tab-bar">
-        <button
-          className={tab === "random" ? "active" : ""}
-          onClick={() => {
-            setTab("random");
-            setOpenFriend(null);
-          }}
-        >
-          چت رندوم
-        </button>
-        <button
-          className={tab === "friends" ? "active" : ""}
-          onClick={() => {
-            setTab("friends");
-            setOpenFriend(null);
-          }}
-        >
-          دوستان
-        </button>
-        <button className="logout-btn" onClick={() => supabase.auth.signOut()}>
-          خروج از اکانت
-        </button>
+        {TABS.map((t) => (
+          <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => goTo(t.id)}>
+            {t.label}
+          </button>
+        ))}
       </nav>
 
       <div className="tab-content">
@@ -62,6 +60,8 @@ export default function App() {
         {tab === "friends" && openFriend && (
           <FriendChat session={session} friend={openFriend} onBack={() => setOpenFriend(null)} />
         )}
+        {tab === "account" && <Account session={session} />}
+        {tab === "settings" && <Settings />}
       </div>
     </div>
   );

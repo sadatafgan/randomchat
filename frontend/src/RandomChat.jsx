@@ -596,6 +596,9 @@ function RandomChat() {
             <button onClick={handleNext} className="ctrl-btn next" aria-label="نفر بعدی">
               <IconNext />
             </button>
+            <button onClick={handleExit} className="ctrl-btn exit-call" aria-label="پایان تماس">
+              <IconExit />
+            </button>
           </div>
 
           <div className="controls live-controls">
