@@ -157,6 +157,17 @@ function IconPalette() {
   );
 }
 
+function IconSliders() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
+      <path d="M4 6h10M18 6h2M4 12h2M8 12h12M4 18h14M20 18h0" />
+      <circle cx="16" cy="6" r="2" fill="currentColor" stroke="none" />
+      <circle cx="6" cy="12" r="2" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="18" r="2" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 // ---------- میله‌های سیگنال ----------
 function SignalMeter({ status }) {
   const active = status === STATUS.CHATTING;
@@ -181,11 +192,9 @@ function RandomChat({ session }) {
   const [activeFilter, setActiveFilter] = useState("natural");
   const [toast, setToast] = useState("");
   const [wantGender, setWantGender] = useState("all"); // فیلتر جنسیت: all | male | female
-  const [genderPickerOpen, setGenderPickerOpen] = useState(false);
   const [wantCountry, setWantCountry] = useState("all");
-  const [countryPickerOpen, setCountryPickerOpen] = useState(false);
   const [wantAgeRange, setWantAgeRange] = useState("all");
-  const [agePickerOpen, setAgePickerOpen] = useState(false);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
 
   const wantCountryRef = useRef("all");
   const wantAgeRangeRef = useRef("all");
@@ -481,7 +490,6 @@ function RandomChat({ session }) {
   function handleWantGenderChange(g) {
     wantGenderRef.current = g;
     setWantGender(g);
-    setGenderPickerOpen(false);
     if (status === STATUS.WAITING || status === STATUS.CONNECTING) {
       sendFindPartnerRef.current();
     } else {
@@ -492,7 +500,6 @@ function RandomChat({ session }) {
   function handleWantCountryChange(c) {
     wantCountryRef.current = c;
     setWantCountry(c);
-    setCountryPickerOpen(false);
     if (status === STATUS.WAITING || status === STATUS.CONNECTING) {
       sendFindPartnerRef.current();
     } else {
@@ -503,7 +510,6 @@ function RandomChat({ session }) {
   function handleWantAgeRangeChange(a) {
     wantAgeRangeRef.current = a;
     setWantAgeRange(a);
-    setAgePickerOpen(false);
     if (status === STATUS.WAITING || status === STATUS.CONNECTING) {
       sendFindPartnerRef.current();
     } else {
@@ -641,12 +647,14 @@ function RandomChat({ session }) {
                 <button onClick={handleAddFriend}>
                   <IconUserPlus /> افزودن دوست
                 </button>
+                <div className="dropdown-divider" />
                 <button onClick={handleReport} disabled={!canModerate} className="danger">
                   <IconFlag /> گزارش تخلف
                 </button>
                 <button onClick={handleBlock} disabled={!canModerate} className="danger">
                   <IconBlock /> مسدود کردن
                 </button>
+                <div className="dropdown-divider" />
                 <button onClick={handleExit} className="danger">
                   <IconExit /> پایان و خروج
                 </button>
@@ -657,61 +665,66 @@ function RandomChat({ session }) {
 
         {/* نوار فیلتر جستجو: جنسیت (فعال)، منطقه/سن (به‌زودی) */}
         <div className="match-filter-bar">
-          <div className="menu-wrap">
-            <button className="filter-pill" onClick={() => setGenderPickerOpen((v) => !v)}>
-              {GENDER_LABEL[wantGender]}
-            </button>
-            {genderPickerOpen && (
-              <div className="dropdown gender-dropdown">
-                <button onClick={() => handleWantGenderChange("all")} className={wantGender === "all" ? "picked" : ""}>
-                  همه
-                </button>
-                <button onClick={() => handleWantGenderChange("male")} className={wantGender === "male" ? "picked" : ""}>
-                  مرد
-                </button>
-                <button onClick={() => handleWantGenderChange("female")} className={wantGender === "female" ? "picked" : ""}>
-                  زن
-                </button>
-              </div>
+          <button className="filter-summary-btn" onClick={() => setFilterSheetOpen((v) => !v)}>
+            <IconSliders />
+            فیلترهای جستجو
+            {(wantGender !== "all" || wantCountry !== "all" || wantAgeRange !== "all") && (
+              <span className="sub-tab-badge">فعال</span>
             )}
-          </div>
-          <div className="menu-wrap">
-            <button className="filter-pill" onClick={() => setCountryPickerOpen((v) => !v)}>
-              {COUNTRY_LABEL[wantCountry]}
-            </button>
-            {countryPickerOpen && (
-              <div className="dropdown gender-dropdown">
+          </button>
+        </div>
+
+        {filterSheetOpen && (
+          <div className="filter-sheet-overlay" onClick={() => setFilterSheetOpen(false)}>
+            <div className="filter-sheet" onClick={(e) => e.stopPropagation()}>
+              <div className="filter-sheet-handle" />
+              <h3>فیلتر نفر بعدی</h3>
+
+              <p className="filter-sheet-label">جنسیت</p>
+              <div className="filter-chip-row">
+                {Object.entries(GENDER_LABEL).map(([id, label]) => (
+                  <button
+                    key={id}
+                    className={wantGender === id ? "chip active" : "chip"}
+                    onClick={() => handleWantGenderChange(id)}
+                  >
+                    {label.replace("جنسیت: ", "")}
+                  </button>
+                ))}
+              </div>
+
+              <p className="filter-sheet-label">منطقه</p>
+              <div className="filter-chip-row">
                 {Object.entries(COUNTRY_LABEL).map(([id, label]) => (
                   <button
                     key={id}
+                    className={wantCountry === id ? "chip active" : "chip"}
                     onClick={() => handleWantCountryChange(id)}
-                    className={wantCountry === id ? "picked" : ""}
                   >
-                    {label}
+                    {label.replace("منطقه: ", "")}
                   </button>
                 ))}
               </div>
-            )}
-          </div>
-          <div className="menu-wrap">
-            <button className="filter-pill" onClick={() => setAgePickerOpen((v) => !v)}>
-              {AGE_LABEL[wantAgeRange]}
-            </button>
-            {agePickerOpen && (
-              <div className="dropdown gender-dropdown">
+
+              <p className="filter-sheet-label">سن</p>
+              <div className="filter-chip-row">
                 {Object.entries(AGE_LABEL).map(([id, label]) => (
                   <button
                     key={id}
+                    className={wantAgeRange === id ? "chip active" : "chip"}
                     onClick={() => handleWantAgeRangeChange(id)}
-                    className={wantAgeRange === id ? "picked" : ""}
                   >
-                    {label}
+                    {label.replace("سن: ", "")}
                   </button>
                 ))}
               </div>
-            )}
+
+              <button className="filter-sheet-close" onClick={() => setFilterSheetOpen(false)}>
+                بستن
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         {toast && <div className="toast">{toast}</div>}
 

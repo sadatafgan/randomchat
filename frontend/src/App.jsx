@@ -12,6 +12,48 @@ import FriendCall from "./FriendCall";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
+function TabIcon({ id }) {
+  const common = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "1.8", strokeLinecap: "round", strokeLinejoin: "round" };
+  if (id === "random")
+    return (
+      <svg {...common}>
+        <rect x="3" y="6" width="13" height="12" rx="2.5" />
+        <path d="M16 10.5l5-3v9l-5-3" />
+      </svg>
+    );
+  if (id === "friends")
+    return (
+      <svg {...common}>
+        <circle cx="9" cy="8" r="3.2" />
+        <path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6" />
+        <path d="M17 8.5a2.6 2.6 0 1 0 0-5.2 2.6 2.6 0 0 0 0 5.2z" />
+        <path d="M15 14c2.8.3 5 2.5 5 6" />
+      </svg>
+    );
+  if (id === "history")
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 7v5l3.5 2" />
+      </svg>
+    );
+  if (id === "account")
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="8" r="3.5" />
+        <path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7" />
+      </svg>
+    );
+  if (id === "settings")
+    return (
+      <svg {...common}>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M19.4 13a7.7 7.7 0 0 0 0-2l2-1.5-2-3.4-2.4.6a7.6 7.6 0 0 0-1.7-1L15 3h-6l-.3 2.6a7.6 7.6 0 0 0-1.7 1l-2.4-.6-2 3.4L4.6 11a7.7 7.7 0 0 0 0 2l-2 1.5 2 3.4 2.4-.6c.5.4 1.1.8 1.7 1L9 21h6l.3-2.6c.6-.2 1.2-.6 1.7-1l2.4.6 2-3.4-2-1.5z" />
+      </svg>
+    );
+  return null;
+}
+
 const TABS = [
   { id: "random", label: "چت رندوم" },
   { id: "friends", label: "دوستان" },
@@ -226,7 +268,8 @@ export default function App() {
       <nav className="tab-bar bottom">
         {TABS.map((t) => (
           <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => goTo(t.id)}>
-            {t.label}
+            <TabIcon id={t.id} />
+            <span>{t.label}</span>
           </button>
         ))}
       </nav>

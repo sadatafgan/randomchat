@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 
 export default function Friends({ session, onOpenChat, onlineIds = [], requestOnlineCheck, onCallFriend }) {
+  const [subTab, setSubTab] = useState("list"); // list | requests
   const [query, setQuery] = useState("");
   const [searchResult, setSearchResult] = useState(null);
   const [searching, setSearching] = useState(false);
@@ -134,6 +135,8 @@ export default function Friends({ session, onOpenChat, onlineIds = [], requestOn
     loadAll();
   }
 
+  const pendingCount = incoming.length + sent.length;
+
   return (
     <div className="friends-screen">
       <form onSubmit={handleSearch} className="friend-search">
@@ -159,70 +162,92 @@ export default function Friends({ session, onOpenChat, onlineIds = [], requestOn
         </div>
       )}
 
-      {incoming.length > 0 && (
-        <>
-          <h3 className="section-title">درخواست‌های دوستی</h3>
-          {incoming.map((r) => (
-            <div key={r.id} className="friend-row">
-              <span>{r.profiles?.username}</span>
-              <div className="friend-actions">
-                <button className="accept-btn" onClick={() => respond(r.id, true)}>
-                  قبول
-                </button>
-                <button className="reject-btn" onClick={() => respond(r.id, false)}>
-                  رد
-                </button>
+      <div className="sub-tabs">
+        <button className={subTab === "list" ? "active" : ""} onClick={() => setSubTab("list")}>
+          دوستان ({friends.length})
+        </button>
+        <button className={subTab === "requests" ? "active" : ""} onClick={() => setSubTab("requests")}>
+          درخواست‌ها {pendingCount > 0 && <span className="sub-tab-badge">{pendingCount}</span>}
+        </button>
+      </div>
+
+      {subTab === "list" && (
+        <div className="sub-tab-panel">
+          {friends.length === 0 && <p className="hint">هنوز دوستی اضافه نکردی</p>}
+          {friends.map((f) => {
+            const isOnline = onlineIds.includes(f.id);
+            return (
+              <div key={f.friendshipId} className="friend-row">
+                <div className="friend-row-clickable" onClick={() => onOpenChat(f)}>
+                  {f.avatarUrl ? (
+                    <img src={f.avatarUrl} alt="" className="mini-avatar" />
+                  ) : (
+                    <span className="mini-avatar-fallback">{(f.username || "?")[0]?.toUpperCase()}</span>
+                  )}
+                  <span className={`online-dot ${isOnline ? "online" : ""}`} />
+                  <span>{f.username}</span>
+                </div>
+                <div className="friend-actions">
+                  {isOnline && onCallFriend && (
+                    <button className="call-btn" onClick={() => onCallFriend(f)}>
+                      تماس
+                    </button>
+                  )}
+                  <button
+                    className="remove-friend-btn"
+                    onClick={() => removeFriend(f.friendshipId)}
+                    aria-label="حذف دوست"
+                  >
+                    ✕
+                  </button>
+                  <span className="chevron" onClick={() => onOpenChat(f)}>
+                    ‹
+                  </span>
+                </div>
               </div>
-            </div>
-          ))}
-        </>
+            );
+          })}
+        </div>
       )}
 
-      {sent.length > 0 && (
-        <>
-          <h3 className="section-title">درخواست‌های ارسالی</h3>
-          {sent.map((r) => (
-            <div key={r.id} className="friend-row">
-              <span>{r.profiles?.username}</span>
-              <button className="reject-btn" onClick={() => cancelSent(r.id)}>
-                لغو
-              </button>
-            </div>
-          ))}
-        </>
-      )}
+      {subTab === "requests" && (
+        <div className="sub-tab-panel">
+          {pendingCount === 0 && <p className="hint">درخواست دوستی‌ای در جریان نیست</p>}
 
-      <h3 className="section-title">دوستان ({friends.length})</h3>
-      {friends.length === 0 && <p className="hint">هنوز دوستی اضافه نکردی</p>}
-      {friends.map((f) => {
-        const isOnline = onlineIds.includes(f.id);
-        return (
-          <div key={f.friendshipId} className="friend-row">
-            <div className="friend-row-clickable" onClick={() => onOpenChat(f)}>
-              {f.avatarUrl ? (
-                <img src={f.avatarUrl} alt="" className="mini-avatar" />
-              ) : (
-                <span className="mini-avatar-fallback">{(f.username || "?")[0]?.toUpperCase()}</span>
-              )}
-              <span className={`online-dot ${isOnline ? "online" : ""}`} />
-              <span>{f.username}</span>
-            </div>
-            <div className="friend-actions">
-              {isOnline && onCallFriend && (
-                <button className="call-btn" onClick={() => onCallFriend(f)}>
-                  تماس
-                </button>
-              )}
-              <button className="remove-friend-btn" onClick={() => removeFriend(f.friendshipId)} aria-label="حذف دوست">
-                ✕
-              </button>
-              <span className="chevron" onClick={() => onOpenChat(f)}>
-                ‹
-              </span>
-            </div>
-          </div>
-        );
-      })}
+          {incoming.length > 0 && (
+            <>
+              <h3 className="section-title">دریافت‌شده</h3>
+              {incoming.map((r) => (
+                <div key={r.id} className="friend-row">
+                  <span>{r.profiles?.username}</span>
+                  <div className="friend-actions">
+                    <button className="accept-btn" onClick={() => respond(r.id, true)}>
+                      قبول
+                    </button>
+                    <button className="reject-btn" onClick={() => respond(r.id, false)}>
+                      رد
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </>
+          )}
+
+          {sent.length > 0 && (
+            <>
+              <h3 className="section-title">ارسال‌شده</h3>
+              {sent.map((r) => (
+                <div key={r.id} className="friend-row">
+                  <span>{r.profiles?.username}</span>
+                  <button className="reject-btn" onClick={() => cancelSent(r.id)}>
+                    لغو
+                  </button>
+                </div>
+              ))}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }
