@@ -28,6 +28,7 @@ export default function App() {
 
   const [onlineIds, setOnlineIds] = useState([]);
   const [myUsername, setMyUsername] = useState("");
+  const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null); // { fromSocketId, fromUserId, fromUsername }
   const [activeCall, setActiveCall] = useState(null); // { partnerId, initiator, partnerUsername }
   const [callStatusMsg, setCallStatusMsg] = useState("");
@@ -96,6 +97,22 @@ export default function App() {
 
     return () => socket.disconnect();
   }, [session?.user?.id]);
+
+  useEffect(() => {
+    function handler(e) {
+      e.preventDefault();
+      setInstallPromptEvent(e);
+    }
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  async function triggerInstall() {
+    if (!installPromptEvent) return;
+    installPromptEvent.prompt();
+    await installPromptEvent.userChoice;
+    setInstallPromptEvent(null);
+  }
 
   function requestOnlineCheck(ids) {
     callSocketRef.current?.emit("check-online", ids);
@@ -203,7 +220,7 @@ export default function App() {
         )}
         {tab === "history" && <History session={session} onAddFriend={() => goTo("friends")} />}
         {tab === "account" && <Account session={session} />}
-        {tab === "settings" && <Settings />}
+        {tab === "settings" && <Settings canInstall={!!installPromptEvent} onInstall={triggerInstall} />}
       </div>
 
       <nav className="tab-bar bottom">
