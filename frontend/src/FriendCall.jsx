@@ -63,16 +63,27 @@ function IconExit() {
   );
 }
 
+function IconSend() {
+  return (
+    <svg viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 11.5L20.5 4l-6 17-3.8-6.7L3 11.5z" />
+    </svg>
+  );
+}
+
 export default function FriendCall({ socket, partnerId, initiator, partnerUsername, onEnd }) {
   const [micOn, setMicOn] = useState(true);
   const [camOn, setCamOn] = useState(true);
   const [connected, setConnected] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [input, setInput] = useState("");
 
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const pendingCandidatesRef = useRef([]);
+  const messagesEndRef = useRef(null);
 
   useEffect(() => {
     let stopped = false;
@@ -141,10 +152,15 @@ export default function FriendCall({ socket, partnerId, initiator, partnerUserna
       onEnd();
     }
 
+    function onMessage(data) {
+      setMessages((prev) => [...prev, { text: data.text, from: "stranger" }]);
+    }
+
     socket.on("webrtc-offer", onOffer);
     socket.on("webrtc-answer", onAnswer);
     socket.on("webrtc-ice-candidate", onCandidate);
     socket.on("partner-left", onPartnerLeft);
+    socket.on("message", onMessage);
 
     start();
 
@@ -154,11 +170,24 @@ export default function FriendCall({ socket, partnerId, initiator, partnerUserna
       socket.off("webrtc-answer", onAnswer);
       socket.off("webrtc-ice-candidate", onCandidate);
       socket.off("partner-left", onPartnerLeft);
+      socket.off("message", onMessage);
       if (pcRef.current) pcRef.current.close();
       if (localStreamRef.current) localStreamRef.current.getTracks().forEach((t) => t.stop());
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [partnerId]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  function sendMessage() {
+    const text = input.trim();
+    if (!text) return;
+    socket.emit("message", text);
+    setMessages((prev) => [...prev, { text, from: "me" }]);
+    setInput("");
+  }
 
   function toggleMic() {
     const track = localStreamRef.current?.getAudioTracks()[0];
@@ -198,6 +227,15 @@ export default function FriendCall({ socket, partnerId, initiator, partnerUserna
         <span className="local-video-label">شما</span>
       </div>
 
+      <div className="live-chat-overlay">
+        {messages.map((m, i) => (
+          <div key={i} className={`live-bubble ${m.from === "me" ? "me" : "stranger"}`}>
+            {m.text}
+          </div>
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+
       <div className="live-bottom-bar">
         <div className="video-controls">
           <button onClick={toggleMic} className={`ctrl-btn ${!micOn ? "off" : ""}`} aria-label="میکروفون">
@@ -208,6 +246,19 @@ export default function FriendCall({ socket, partnerId, initiator, partnerUserna
           </button>
           <button onClick={handleEnd} className="ctrl-btn exit-call" aria-label="پایان تماس">
             <IconExit />
+          </button>
+        </div>
+
+        <div className="controls live-controls">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+            placeholder="پیامت را بنویس..."
+          />
+          <button onClick={sendMessage} className="send-btn" aria-label="ارسال">
+            <IconSend />
           </button>
         </div>
       </div>
