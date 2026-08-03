@@ -6,6 +6,7 @@ export default function Friends({ session, onOpenChat, onlineIds = [], requestOn
   const [searchResult, setSearchResult] = useState(null);
   const [searching, setSearching] = useState(false);
   const [incoming, setIncoming] = useState([]);
+  const [sent, setSent] = useState([]);
   const [friends, setFriends] = useState([]);
   const [message, setMessage] = useState("");
 
@@ -19,6 +20,14 @@ export default function Friends({ session, onOpenChat, onlineIds = [], requestOn
       .eq("addressee_id", myId)
       .eq("status", "pending");
     setIncoming(reqs || []);
+
+    // درخواست‌هایی که خودم فرستادم و هنوز pending هستند
+    const { data: sentReqs } = await supabase
+      .from("friendships")
+      .select("id, addressee_id, profiles:addressee_id(username, avatar_url)")
+      .eq("requester_id", myId)
+      .eq("status", "pending");
+    setSent(sentReqs || []);
 
     // دوستی‌هایی که من فرستادم و قبول شدند
     const { data: fr1 } = await supabase
@@ -114,6 +123,17 @@ export default function Friends({ session, onOpenChat, onlineIds = [], requestOn
     loadAll();
   }
 
+  async function cancelSent(requestId) {
+    await supabase.from("friendships").delete().eq("id", requestId);
+    loadAll();
+  }
+
+  async function removeFriend(friendshipId) {
+    if (!window.confirm("این دوست حذف شود؟")) return;
+    await supabase.from("friendships").delete().eq("id", friendshipId);
+    loadAll();
+  }
+
   return (
     <div className="friends-screen">
       <form onSubmit={handleSearch} className="friend-search">
@@ -158,6 +178,20 @@ export default function Friends({ session, onOpenChat, onlineIds = [], requestOn
         </>
       )}
 
+      {sent.length > 0 && (
+        <>
+          <h3 className="section-title">درخواست‌های ارسالی</h3>
+          {sent.map((r) => (
+            <div key={r.id} className="friend-row">
+              <span>{r.profiles?.username}</span>
+              <button className="reject-btn" onClick={() => cancelSent(r.id)}>
+                لغو
+              </button>
+            </div>
+          ))}
+        </>
+      )}
+
       <h3 className="section-title">دوستان ({friends.length})</h3>
       {friends.length === 0 && <p className="hint">هنوز دوستی اضافه نکردی</p>}
       {friends.map((f) => {
@@ -179,6 +213,9 @@ export default function Friends({ session, onOpenChat, onlineIds = [], requestOn
                   تماس
                 </button>
               )}
+              <button className="remove-friend-btn" onClick={() => removeFriend(f.friendshipId)} aria-label="حذف دوست">
+                ✕
+              </button>
               <span className="chevron" onClick={() => onOpenChat(f)}>
                 ‹
               </span>

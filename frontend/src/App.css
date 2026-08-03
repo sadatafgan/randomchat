@@ -1401,3 +1401,18 @@ input:focus-visible {
   font-size: 12px;
   font-weight: 700;
 }
+
+.remove-friend-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-faint);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.remove-friend-btn:hover {
+  color: var(--signal-danger);
+}
