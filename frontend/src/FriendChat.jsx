@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
+import { censorText } from "./lib/textFilter";
 
 export default function FriendChat({ session, friend, onBack }) {
   const [messages, setMessages] = useState([]);
@@ -43,8 +44,9 @@ export default function FriendChat({ session, friend, onBack }) {
   }, [messages]);
 
   async function send() {
-    const text = input.trim();
-    if (!text) return;
+    const raw = input.trim();
+    if (!raw) return;
+    const text = censorText(raw);
     setInput("");
     await supabase.from("messages").insert({ sender_id: myId, receiver_id: friend.id, content: text });
   }

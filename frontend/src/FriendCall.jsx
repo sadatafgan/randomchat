@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { censorText } from "./lib/textFilter";
 
 const ICE_SERVERS = {
   iceServers: [
@@ -182,8 +183,9 @@ export default function FriendCall({ socket, partnerId, initiator, partnerUserna
   }, [messages]);
 
   function sendMessage() {
-    const text = input.trim();
-    if (!text) return;
+    const raw = input.trim();
+    if (!raw) return;
+    const text = censorText(raw);
     socket.emit("message", text);
     setMessages((prev) => [...prev, { text, from: "me" }]);
     setInput("");

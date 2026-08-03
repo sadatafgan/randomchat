@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { supabase } from "./lib/supabaseClient";
+import { containsBadWord } from "./lib/textFilter";
 
 function translateAuthError(msg) {
   if (!msg) return "خطایی رخ داد";
@@ -30,6 +31,11 @@ export default function Auth() {
       if (mode === "signup") {
         if (!username.trim()) {
           setError("یک نام کاربری انتخاب کن");
+          setLoading(false);
+          return;
+        }
+        if (containsBadWord(username)) {
+          setError("این نام کاربری مناسب نیست، یک نام دیگر انتخاب کن");
           setLoading(false);
           return;
         }

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { supabase } from "./lib/supabaseClient";
+import { censorText } from "./lib/textFilter";
 
 // آدرس سرور بک‌اند
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
@@ -462,8 +463,9 @@ function RandomChat({ session }) {
   }, [messages]);
 
   function sendMessage() {
-    const text = input.trim();
-    if (!text || status !== STATUS.CHATTING) return;
+    const raw = input.trim();
+    if (!raw || status !== STATUS.CHATTING) return;
+    const text = censorText(raw);
     socketRef.current.emit("message", text);
     setMessages((prev) => [...prev, { text, from: "me" }]);
     setInput("");
