@@ -1240,3 +1240,164 @@ input:focus-visible {
   font-size: 11px;
   color: var(--text-faint);
 }
+
+/* ===========================================================
+   وضعیت آنلاین و دکمه تماس در لیست دوستان
+   =========================================================== */
+.friend-row-clickable {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1;
+}
+
+.online-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  flex-shrink: 0;
+}
+
+.online-dot.online {
+  background: var(--signal-lock);
+  box-shadow: 0 0 6px var(--signal-lock);
+}
+
+.call-btn {
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: none;
+  background: var(--brand-violet);
+  color: white;
+  font-family: var(--font-fa);
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ===========================================================
+   مودال تماس ورودی / در حال تماس
+   =========================================================== */
+.incoming-call-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(0, 0, 0, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.incoming-call-card {
+  background: var(--bg-panel-raised);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  max-width: 300px;
+  width: 100%;
+  text-align: center;
+}
+
+.incoming-call-actions {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+}
+
+.reject-btn.big,
+.accept-btn.big {
+  flex: 1;
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  border: none;
+  font-family: var(--font-fa);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.reject-btn.big {
+  background: transparent;
+  border: 1px solid var(--signal-danger);
+  color: var(--signal-danger);
+}
+
+.accept-btn.big {
+  background: var(--brand-violet);
+  color: white;
+}
+
+.call-toast {
+  top: 16px;
+  z-index: 90;
+}
+
+/* ===========================================================
+   آپلود عکس پروفایل
+   =========================================================== */
+.avatar-upload-btn {
+  position: relative;
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.account-avatar-img {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+
+.avatar-edit-badge {
+  position: absolute;
+  bottom: -2px;
+  left: -2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--brand-violet);
+  color: white;
+  font-size: 11px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--bg-base);
+}
+
+.gender-selector.wrap {
+  flex-wrap: wrap;
+}
+
+.gender-selector.wrap button {
+  flex: 1 1 45%;
+}
+
+.mini-avatar,
+.mini-avatar-fallback {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  object-fit: cover;
+}
+
+.mini-avatar-fallback {
+  background: var(--brand-violet);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}

@@ -30,6 +30,7 @@ const STATUS = {
   PARTNER_LEFT: "partner_left",
   MEDIA_ERROR: "media_error",
   EXITED: "exited",
+  SUSPENDED: "suspended",
 };
 
 // فیلترهای زیبایی زنده - این‌ها روی ترافیک ارسالی هم اعمال می‌شوند (نه فقط پیش‌نمایش خودت)
@@ -42,6 +43,14 @@ const FILTERS = [
 ];
 
 const GENDER_LABEL = { all: "جنسیت: همه", male: "جنسیت: مرد", female: "جنسیت: زن" };
+const COUNTRY_LABEL = { all: "منطقه: همه", AF: "افغانستان", IR: "ایران", other: "سایر کشورها" };
+const AGE_LABEL = {
+  all: "سن: همه",
+  "18-24": "۱۸-۲۴",
+  "25-34": "۲۵-۳۴",
+  "35-44": "۳۵-۴۴",
+  "45+": "۴۵+",
+};
 function IconMic() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -172,6 +181,13 @@ function RandomChat({ session }) {
   const [toast, setToast] = useState("");
   const [wantGender, setWantGender] = useState("all"); // فیلتر جنسیت: all | male | female
   const [genderPickerOpen, setGenderPickerOpen] = useState(false);
+  const [wantCountry, setWantCountry] = useState("all");
+  const [countryPickerOpen, setCountryPickerOpen] = useState(false);
+  const [wantAgeRange, setWantAgeRange] = useState("all");
+  const [agePickerOpen, setAgePickerOpen] = useState(false);
+
+  const wantCountryRef = useRef("all");
+  const wantAgeRangeRef = useRef("all");
 
   const myProfileRef = useRef({ userId: null, username: null, gender: "unspecified" });
   const partnerInfoRef = useRef({ userId: null, username: null });
@@ -282,18 +298,29 @@ function RandomChat({ session }) {
     let socket;
 
     async function init() {
-      // اول پروفایل خودمان (نام کاربری، جنسیت) را از دیتابیس می‌گیریم
+      // اول پروفایل خودمان (نام کاربری، جنسیت، منطقه، سن) را از دیتابیس می‌گیریم
       if (session?.user?.id) {
         const { data } = await supabase
           .from("profiles")
-          .select("username, gender")
+          .select("username, gender, country, age_range")
           .eq("id", session.user.id)
           .maybeSingle();
         myProfileRef.current = {
           userId: session.user.id,
           username: data?.username || null,
           gender: data?.gender || "unspecified",
+          country: data?.country || null,
+          ageRange: data?.age_range || null,
         };
+
+        // چک می‌کنیم که آیا این کاربر به‌خاطر گزارش‌های زیاد تعلیق شده یا نه
+        const { data: suspended } = await supabase.rpc("is_suspended", {
+          check_id: session.user.id,
+        });
+        if (suspended) {
+          setStatus(STATUS.SUSPENDED);
+          return;
+        }
       }
 
       try {
@@ -336,6 +363,10 @@ function RandomChat({ session }) {
           username: myProfileRef.current.username,
           gender: myProfileRef.current.gender,
           wantGender: wantGenderRef.current,
+          country: myProfileRef.current.country,
+          wantCountry: wantCountryRef.current,
+          ageRange: myProfileRef.current.ageRange,
+          wantAgeRange: wantAgeRangeRef.current,
         });
       }
       sendFindPartnerRef.current = sendFindPartner;
@@ -449,7 +480,28 @@ function RandomChat({ session }) {
     wantGenderRef.current = g;
     setWantGender(g);
     setGenderPickerOpen(false);
-    // اگر منتظریم یا تازه وصل شدیم، جستجو را با فیلتر جدید تازه کن
+    if (status === STATUS.WAITING || status === STATUS.CONNECTING) {
+      sendFindPartnerRef.current();
+    } else {
+      showToast("فیلتر برای جستجوی بعدی اعمال می‌شود");
+    }
+  }
+
+  function handleWantCountryChange(c) {
+    wantCountryRef.current = c;
+    setWantCountry(c);
+    setCountryPickerOpen(false);
+    if (status === STATUS.WAITING || status === STATUS.CONNECTING) {
+      sendFindPartnerRef.current();
+    } else {
+      showToast("فیلتر برای جستجوی بعدی اعمال می‌شود");
+    }
+  }
+
+  function handleWantAgeRangeChange(a) {
+    wantAgeRangeRef.current = a;
+    setWantAgeRange(a);
+    setAgePickerOpen(false);
     if (status === STATUS.WAITING || status === STATUS.CONNECTING) {
       sendFindPartnerRef.current();
     } else {
@@ -484,6 +536,15 @@ function RandomChat({ session }) {
 
   function handleReport() {
     socketRef.current?.emit("report");
+    if (myProfileRef.current.userId && partnerInfoRef.current.userId) {
+      supabase
+        .from("reports")
+        .insert({
+          reporter_id: myProfileRef.current.userId,
+          reported_id: partnerInfoRef.current.userId,
+        })
+        .then(() => {});
+    }
     showToast("گزارش ثبت شد. به نفر بعدی وصل می‌شی");
     setMenuOpen(false);
     handleNext();
@@ -533,6 +594,20 @@ function RandomChat({ session }) {
           <button className="scan-retry" onClick={() => window.location.reload()}>
             شروع دوباره
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === STATUS.SUSPENDED) {
+    return (
+      <div className="app">
+        <div className="media-error">
+          <div className="media-error-icon">
+            <IconFlag />
+          </div>
+          <h2>دسترسی شما موقتاً محدود شده</h2>
+          <p>به‌خاطر گزارش‌های متعدد از طرف کاربران دیگر، امکان استفاده از چت رندوم فعلاً غیرفعال شده.</p>
         </div>
       </div>
     );
@@ -598,12 +673,42 @@ function RandomChat({ session }) {
               </div>
             )}
           </div>
-          <button className="filter-pill" onClick={() => showToast("فیلتر منطقه به‌زودی اضافه می‌شود 🚧")}>
-            منطقه
-          </button>
-          <button className="filter-pill" onClick={() => showToast("فیلتر سن به‌زودی اضافه می‌شود 🚧")}>
-            سن
-          </button>
+          <div className="menu-wrap">
+            <button className="filter-pill" onClick={() => setCountryPickerOpen((v) => !v)}>
+              {COUNTRY_LABEL[wantCountry]}
+            </button>
+            {countryPickerOpen && (
+              <div className="dropdown gender-dropdown">
+                {Object.entries(COUNTRY_LABEL).map(([id, label]) => (
+                  <button
+                    key={id}
+                    onClick={() => handleWantCountryChange(id)}
+                    className={wantCountry === id ? "picked" : ""}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="menu-wrap">
+            <button className="filter-pill" onClick={() => setAgePickerOpen((v) => !v)}>
+              {AGE_LABEL[wantAgeRange]}
+            </button>
+            {agePickerOpen && (
+              <div className="dropdown gender-dropdown">
+                {Object.entries(AGE_LABEL).map(([id, label]) => (
+                  <button
+                    key={id}
+                    onClick={() => handleWantAgeRangeChange(id)}
+                    className={wantAgeRange === id ? "picked" : ""}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {toast && <div className="toast">{toast}</div>}

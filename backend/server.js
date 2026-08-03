@@ -36,22 +36,36 @@ let partners = {};
 // نگهداری بلاک‌ها: blockedBy["A"] = Set{"B", "C"} یعنی A این‌ها را بلاک کرده
 let blockedBy = {};
 
-// نگهداری اطلاعات اکانت هر socket: profiles["A"] = { userId, username, gender, wantGender }
+// نگهداری اطلاعات اکانت هر socket: profiles["A"] = { userId, username, gender, wantGender, country, wantCountry, ageRange, wantAgeRange }
 let profiles = {};
+
+// نگهداری وضعیت آنلاین: onlineUsers["user-uuid"] = socket.id  (برای تماس با دوستان)
+let onlineUsers = {};
 
 function isBlockedPair(id1, id2) {
   return (blockedBy[id1] && blockedBy[id1].has(id2)) || (blockedBy[id2] && blockedBy[id2].has(id1));
 }
 
-// آیا این دو نفر از نظر جنسیت با ترجیح همدیگر جور هستند؟
-function isGenderCompatible(id1, id2) {
+// چک تطابق دوطرفه‌ی یک فیلتر خاص (جنسیت/منطقه/سن) - اگر یکی "all" خواسته یا اطلاعاتی نبود، محدودیتی نمی‌گذارد
+function fieldCompatible(wantValue, actualValue) {
+  if (!wantValue || wantValue === "all") return true;
+  return wantValue === actualValue;
+}
+
+// آیا این دو نفر از نظر جنسیت/منطقه/سن با ترجیح همدیگر جور هستند؟
+function isMatchCompatible(id1, id2) {
   const p1 = profiles[id1];
   const p2 = profiles[id2];
   if (!p1 || !p2) return true; // اگر اطلاعاتی نبود، محدودیتی اعمال نکن
 
-  const p1Wants = !p1.wantGender || p1.wantGender === "all" || p1.wantGender === p2.gender;
-  const p2Wants = !p2.wantGender || p2.wantGender === "all" || p2.wantGender === p1.gender;
-  return p1Wants && p2Wants;
+  return (
+    fieldCompatible(p1.wantGender, p2.gender) &&
+    fieldCompatible(p2.wantGender, p1.gender) &&
+    fieldCompatible(p1.wantCountry, p2.country) &&
+    fieldCompatible(p2.wantCountry, p1.country) &&
+    fieldCompatible(p1.wantAgeRange, p2.ageRange) &&
+    fieldCompatible(p2.wantAgeRange, p1.ageRange)
+  );
 }
 
 // تابع کمکی: تلاش برای جفت‌کردن یک کاربر با نفر بعدی در صف (که بلاک نشده و جنسیتش جور باشد)
@@ -65,7 +79,7 @@ function tryMatch(socket) {
     const candidateId = waitingQueue[i];
     if (
       !isBlockedPair(socket.id, candidateId) &&
-      isGenderCompatible(socket.id, candidateId) &&
+      isMatchCompatible(socket.id, candidateId) &&
       io.sockets.sockets.get(candidateId)
     ) {
       matchIndex = i;
@@ -138,6 +152,10 @@ io.on("connection", (socket) => {
         username: profile.username || null,
         gender: profile.gender || "unspecified",
         wantGender: profile.wantGender || "all",
+        country: profile.country || null,
+        wantCountry: profile.wantCountry || "all",
+        ageRange: profile.ageRange || null,
+        wantAgeRange: profile.wantAgeRange || "all",
       };
     }
     disconnectFromPartner(socket); // برای اطمینان، هر وضعیت قبلی را پاک کن
@@ -188,6 +206,68 @@ io.on("connection", (socket) => {
     }
   });
 
+  // --- وضعیت آنلاین و تماس با دوستان (جدا از صف چت رندوم) ---
+
+  // کاربر اعلام می‌کند که آنلاین است (userId خودش را ثبت می‌کند)
+  socket.on("register-presence", ({ userId }) => {
+    if (!userId) return;
+    socket.userId = userId;
+    onlineUsers[userId] = socket.id;
+  });
+
+  // چک کردن اینکه کدام‌یک از لیست دوستان الان آنلاین هستند
+  socket.on("check-online", (userIds) => {
+    const online = (userIds || []).filter((id) => !!onlineUsers[id]);
+    socket.emit("online-status", online);
+  });
+
+  // درخواست تماس با یک دوست مشخص (بر اساس userId، نه صف رندوم)
+  socket.on("call-friend", ({ targetUserId, fromUserId, fromUsername }) => {
+    const targetSocketId = onlineUsers[targetUserId];
+    const targetSocket = targetSocketId && io.sockets.sockets.get(targetSocketId);
+
+    if (!targetSocket) {
+      socket.emit("call-failed", { reason: "offline" });
+      return;
+    }
+    if (partners[targetSocketId] || partners[socket.id]) {
+      socket.emit("call-failed", { reason: "busy" });
+      return;
+    }
+
+    targetSocket.emit("incoming-call", {
+      fromSocketId: socket.id,
+      fromUserId,
+      fromUsername,
+    });
+  });
+
+  // دوست تماس را قبول می‌کند -> از همان مکانیزم partners چت رندوم استفاده می‌کنیم
+  // چون رویدادهای webrtc-offer/answer/ice-candidate از قبل بر همین اساس کار می‌کنند
+  socket.on("accept-call", ({ callerSocketId }) => {
+    const callerSocket = io.sockets.sockets.get(callerSocketId);
+    if (!callerSocket) {
+      socket.emit("call-failed", { reason: "gone" });
+      return;
+    }
+    partners[socket.id] = callerSocketId;
+    partners[callerSocketId] = socket.id;
+
+    const socketIsInitiator = socket.id < callerSocketId;
+    socket.emit("call-accepted", { partnerId: callerSocketId, initiator: socketIsInitiator });
+    callerSocket.emit("call-accepted", { partnerId: socket.id, initiator: !socketIsInitiator });
+  });
+
+  socket.on("reject-call", ({ callerSocketId }) => {
+    const callerSocket = io.sockets.sockets.get(callerSocketId);
+    if (callerSocket) callerSocket.emit("call-failed", { reason: "rejected" });
+  });
+
+  // پایان تماس با دوست (بدون قطع کل اتصال سوکت، چون برای وضعیت آنلاین هم لازم است)
+  socket.on("end-call", () => {
+    disconnectFromPartner(socket);
+  });
+
   // کاربر می‌خواهد partner فعلی را رد کند و یک نفر جدید پیدا کند
   socket.on("skip", () => {
     disconnectFromPartner(socket);
@@ -199,6 +279,9 @@ io.on("connection", (socket) => {
     disconnectFromPartner(socket);
     delete blockedBy[socket.id];
     delete profiles[socket.id];
+    if (socket.userId && onlineUsers[socket.userId] === socket.id) {
+      delete onlineUsers[socket.userId];
+    }
     console.log(`❌ کاربر قطع شد: ${socket.id}`);
   });
 });

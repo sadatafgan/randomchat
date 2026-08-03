@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { io } from "socket.io-client";
 import { supabase } from "./lib/supabaseClient";
 import Auth from "./Auth";
 import Friends from "./Friends";
@@ -7,6 +8,9 @@ import RandomChat from "./RandomChat";
 import Account from "./Account";
 import Settings from "./Settings";
 import History from "./History";
+import FriendCall from "./FriendCall";
+
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
 
 const TABS = [
   { id: "random", label: "چت رندوم" },
@@ -22,6 +26,14 @@ export default function App() {
   const [tab, setTab] = useState("random");
   const [openFriend, setOpenFriend] = useState(null);
 
+  const [onlineIds, setOnlineIds] = useState([]);
+  const [myUsername, setMyUsername] = useState("");
+  const [incomingCall, setIncomingCall] = useState(null); // { fromSocketId, fromUserId, fromUsername }
+  const [activeCall, setActiveCall] = useState(null); // { partnerId, initiator, partnerUsername }
+  const [callStatusMsg, setCallStatusMsg] = useState("");
+
+  const callSocketRef = useRef(null);
+
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
@@ -35,6 +47,87 @@ export default function App() {
     return () => listener.subscription.unsubscribe();
   }, []);
 
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    supabase
+      .from("profiles")
+      .select("username")
+      .eq("id", session.user.id)
+      .maybeSingle()
+      .then(({ data }) => setMyUsername(data?.username || ""));
+  }, [session?.user?.id]);
+
+  // اتصال دائمی سبک برای وضعیت آنلاین و تماس با دوستان (جدا از سوکت چت رندوم)
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const socket = io(BACKEND_URL);
+    callSocketRef.current = socket;
+
+    socket.on("connect", () => {
+      socket.emit("register-presence", { userId: session.user.id });
+    });
+
+    socket.on("online-status", (ids) => setOnlineIds(ids));
+
+    socket.on("incoming-call", (payload) => setIncomingCall(payload));
+
+    socket.on("call-accepted", ({ partnerId, initiator }) => {
+      setCallStatusMsg("");
+      setIncomingCall(null);
+      setActiveCall((prev) => ({
+        partnerId,
+        initiator,
+        partnerUsername: prev?.partnerUsername || null,
+      }));
+    });
+
+    socket.on("call-failed", ({ reason }) => {
+      const map = {
+        offline: "این دوست الان آنلاین نیست",
+        busy: "این دوست الان در تماس دیگری است",
+        rejected: "تماس رد شد",
+        gone: "تماس‌گیرنده دیگر آنلاین نیست",
+      };
+      setCallStatusMsg(map[reason] || "تماس برقرار نشد");
+      setActiveCall(null);
+      setTimeout(() => setCallStatusMsg(""), 3000);
+    });
+
+    return () => socket.disconnect();
+  }, [session?.user?.id]);
+
+  function requestOnlineCheck(ids) {
+    callSocketRef.current?.emit("check-online", ids);
+  }
+
+  function startCall(friend) {
+    if (!callSocketRef.current) return;
+    setCallStatusMsg(`در حال تماس با ${friend.username}...`);
+    setActiveCall({ partnerUsername: friend.username, pending: true });
+    callSocketRef.current.emit("call-friend", {
+      targetUserId: friend.id,
+      fromUserId: session.user.id,
+      fromUsername: myUsername || session.user.email,
+    });
+  }
+
+  function acceptIncomingCall() {
+    if (!incomingCall) return;
+    setActiveCall({ partnerUsername: incomingCall.fromUsername, pending: true });
+    callSocketRef.current.emit("accept-call", { callerSocketId: incomingCall.fromSocketId });
+  }
+
+  function rejectIncomingCall() {
+    if (!incomingCall) return;
+    callSocketRef.current.emit("reject-call", { callerSocketId: incomingCall.fromSocketId });
+    setIncomingCall(null);
+  }
+
+  function endCall() {
+    setActiveCall(null);
+  }
+
   if (loadingSession) return null;
 
   if (!session) {
@@ -46,11 +139,65 @@ export default function App() {
     setOpenFriend(null);
   }
 
+  // در حال تماس -> کل صفحه را تماس می‌گیرد، نوار پیمایش مخفی می‌شود
+  if (activeCall && !activeCall.pending) {
+    return (
+      <div className="shell">
+        <FriendCall
+          socket={callSocketRef.current}
+          partnerId={activeCall.partnerId}
+          initiator={activeCall.initiator}
+          partnerUsername={activeCall.partnerUsername}
+          onEnd={endCall}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="shell">
+      {callStatusMsg && <div className="toast call-toast">{callStatusMsg}</div>}
+
+      {incomingCall && !activeCall && (
+        <div className="incoming-call-modal">
+          <div className="incoming-call-card">
+            <div className="account-avatar">{(incomingCall.fromUsername || "?")[0]?.toUpperCase()}</div>
+            <p>{incomingCall.fromUsername || "یک دوست"} در حال تماس است</p>
+            <div className="incoming-call-actions">
+              <button className="reject-btn big" onClick={rejectIncomingCall}>
+                رد کردن
+              </button>
+              <button className="accept-btn big" onClick={acceptIncomingCall}>
+                پاسخ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeCall?.pending && (
+        <div className="incoming-call-modal">
+          <div className="incoming-call-card">
+            <div className="account-avatar">{(activeCall.partnerUsername || "?")[0]?.toUpperCase()}</div>
+            <p>در حال تماس با {activeCall.partnerUsername}...</p>
+            <button className="reject-btn big" onClick={() => setActiveCall(null)}>
+              لغو
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="tab-content">
         {tab === "random" && <RandomChat session={session} />}
-        {tab === "friends" && !openFriend && <Friends session={session} onOpenChat={setOpenFriend} />}
+        {tab === "friends" && !openFriend && (
+          <Friends
+            session={session}
+            onOpenChat={setOpenFriend}
+            onlineIds={onlineIds}
+            requestOnlineCheck={requestOnlineCheck}
+            onCallFriend={startCall}
+          />
+        )}
         {tab === "friends" && openFriend && (
           <FriendChat session={session} friend={openFriend} onBack={() => setOpenFriend(null)} />
         )}

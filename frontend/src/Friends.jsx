@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 
-export default function Friends({ session, onOpenChat }) {
+export default function Friends({ session, onOpenChat, onlineIds = [], requestOnlineCheck, onCallFriend }) {
   const [query, setQuery] = useState("");
   const [searchResult, setSearchResult] = useState(null);
   const [searching, setSearching] = useState(false);
@@ -15,7 +15,7 @@ export default function Friends({ session, onOpenChat }) {
     // درخواست‌های ورودی که هنوز pending هستند
     const { data: reqs } = await supabase
       .from("friendships")
-      .select("id, requester_id, profiles:requester_id(username)")
+      .select("id, requester_id, profiles:requester_id(username, avatar_url)")
       .eq("addressee_id", myId)
       .eq("status", "pending");
     setIncoming(reqs || []);
@@ -23,14 +23,14 @@ export default function Friends({ session, onOpenChat }) {
     // دوستی‌هایی که من فرستادم و قبول شدند
     const { data: fr1 } = await supabase
       .from("friendships")
-      .select("id, addressee_id, profiles:addressee_id(username)")
+      .select("id, addressee_id, profiles:addressee_id(username, avatar_url)")
       .eq("requester_id", myId)
       .eq("status", "accepted");
 
     // دوستی‌هایی که برای من فرستاده شد و قبول کردم
     const { data: fr2 } = await supabase
       .from("friendships")
-      .select("id, requester_id, profiles:requester_id(username)")
+      .select("id, requester_id, profiles:requester_id(username, avatar_url)")
       .eq("addressee_id", myId)
       .eq("status", "accepted");
 
@@ -39,14 +39,20 @@ export default function Friends({ session, onOpenChat }) {
         friendshipId: f.id,
         id: f.addressee_id,
         username: f.profiles?.username,
+        avatarUrl: f.profiles?.avatar_url,
       })),
       ...(fr2 || []).map((f) => ({
         friendshipId: f.id,
         id: f.requester_id,
         username: f.profiles?.username,
+        avatarUrl: f.profiles?.avatar_url,
       })),
     ];
     setFriends(list);
+
+    if (requestOnlineCheck && list.length > 0) {
+      requestOnlineCheck(list.map((f) => f.id));
+    }
   }
 
   useEffect(() => {
@@ -154,12 +160,32 @@ export default function Friends({ session, onOpenChat }) {
 
       <h3 className="section-title">دوستان ({friends.length})</h3>
       {friends.length === 0 && <p className="hint">هنوز دوستی اضافه نکردی</p>}
-      {friends.map((f) => (
-        <div key={f.friendshipId} className="friend-row clickable" onClick={() => onOpenChat(f)}>
-          <span>{f.username}</span>
-          <span className="chevron">‹</span>
-        </div>
-      ))}
+      {friends.map((f) => {
+        const isOnline = onlineIds.includes(f.id);
+        return (
+          <div key={f.friendshipId} className="friend-row">
+            <div className="friend-row-clickable" onClick={() => onOpenChat(f)}>
+              {f.avatarUrl ? (
+                <img src={f.avatarUrl} alt="" className="mini-avatar" />
+              ) : (
+                <span className="mini-avatar-fallback">{(f.username || "?")[0]?.toUpperCase()}</span>
+              )}
+              <span className={`online-dot ${isOnline ? "online" : ""}`} />
+              <span>{f.username}</span>
+            </div>
+            <div className="friend-actions">
+              {isOnline && onCallFriend && (
+                <button className="call-btn" onClick={() => onCallFriend(f)}>
+                  تماس
+                </button>
+              )}
+              <span className="chevron" onClick={() => onOpenChat(f)}>
+                ‹
+              </span>
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
