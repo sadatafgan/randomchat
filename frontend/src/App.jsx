@@ -199,7 +199,21 @@ export default function App() {
     setActiveCall(null);
   }
 
-  if (loadingSession) return null;
+  if (loadingSession) {
+    return (
+      <div className="splash-screen">
+        <div className="splash-logo">
+          <div className="splash-rings">
+            <span className="ring ring-1" />
+            <span className="ring ring-2" />
+            <span className="ring ring-3" />
+          </div>
+          <span className="splash-dot" />
+        </div>
+        <span className="splash-name">RandomChat</span>
+      </div>
+    );
+  }
 
   if (!session) {
     return <Auth />;
@@ -259,22 +273,24 @@ export default function App() {
       )}
 
       <div className="tab-content">
-        {tab === "random" && <RandomChat session={session} />}
-        {tab === "friends" && !openFriend && (
-          <Friends
-            session={session}
-            onOpenChat={setOpenFriend}
-            onlineIds={onlineIds}
-            requestOnlineCheck={requestOnlineCheck}
-            onCallFriend={startCall}
-          />
-        )}
-        {tab === "friends" && openFriend && (
-          <FriendChat session={session} friend={openFriend} onBack={() => setOpenFriend(null)} />
-        )}
-        {tab === "history" && <History session={session} onAddFriend={() => goTo("friends")} />}
-        {tab === "account" && <Account session={session} />}
-        {tab === "settings" && <Settings canInstall={!!installPromptEvent} onInstall={triggerInstall} />}
+        <div className="tab-fade-wrapper" key={tab + (openFriend?.id || "")}>
+          {tab === "random" && <RandomChat session={session} />}
+          {tab === "friends" && !openFriend && (
+            <Friends
+              session={session}
+              onOpenChat={setOpenFriend}
+              onlineIds={onlineIds}
+              requestOnlineCheck={requestOnlineCheck}
+              onCallFriend={startCall}
+            />
+          )}
+          {tab === "friends" && openFriend && (
+            <FriendChat session={session} friend={openFriend} onBack={() => setOpenFriend(null)} />
+          )}
+          {tab === "history" && <History session={session} onAddFriend={() => goTo("friends")} />}
+          {tab === "account" && <Account session={session} />}
+          {tab === "settings" && <Settings canInstall={!!installPromptEvent} onInstall={triggerInstall} />}
+        </div>
       </div>
 
       <nav className="tab-bar bottom">
