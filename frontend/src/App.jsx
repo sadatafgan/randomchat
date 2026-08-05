@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { supabase } from "./lib/supabaseClient";
+import { requestPermission, notify } from "./lib/notifications";
 import Auth from "./Auth";
 import Friends from "./Friends";
 import FriendChat from "./FriendChat";
@@ -104,6 +105,9 @@ export default function App() {
   useEffect(() => {
     if (!session?.user?.id) return;
 
+    // درخواست اجازه‌ی اعلان در اولین اتصال
+    requestPermission();
+
     const socket = io(BACKEND_URL);
     callSocketRef.current = socket;
 
@@ -113,7 +117,15 @@ export default function App() {
 
     socket.on("online-status", (ids) => setOnlineIds(ids));
 
-    socket.on("incoming-call", (payload) => setIncomingCall(payload));
+    socket.on("incoming-call", (payload) => {
+      setIncomingCall(payload);
+      // اعلان مرورگر — فقط اگر تب پنهان باشد
+      notify("📞 تماس ورودی", {
+        body: `${payload.fromUsername || "یک دوست"} با شما تماس می‌گیرد`,
+        tag: "incoming-call",
+        requireInteraction: true, // تا کاربر رد یا قبول نکند، اعلان نمی‌رود
+      });
+    });
 
     socket.on("call-accepted", ({ partnerId, initiator }) => {
       setCallStatusMsg("");
