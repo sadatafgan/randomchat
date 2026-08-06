@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { supabase } from "./lib/supabaseClient";
 import { requestPermission, notify } from "./lib/notifications";
+import Logo from "./Logo";
 import Auth from "./Auth";
 import Friends from "./Friends";
 import FriendChat from "./FriendChat";
@@ -208,7 +209,7 @@ export default function App() {
             <span className="ring ring-2" />
             <span className="ring ring-3" />
           </div>
-          <span className="splash-dot" />
+          <Logo size={46} />
         </div>
         <span className="splash-name">RandomChat</span>
       </div>

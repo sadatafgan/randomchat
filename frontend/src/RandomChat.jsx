@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { io } from "socket.io-client";
 import { supabase } from "./lib/supabaseClient";
 import { censorText } from "./lib/textFilter";
+import Logo from "./Logo";
 
 // آدرس سرور بک‌اند
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
@@ -635,7 +636,7 @@ function RandomChat({ session }) {
         {/* هدر شناور روی ویدیو */}
         <div className="live-header">
           <div className="brand">
-            <span className="brand-dot" />
+            <Logo size={26} />
             <span className="brand-name">RandomChat</span>
           </div>
           <div className="menu-wrap">

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 import { containsBadWord } from "./lib/textFilter";
+import Logo from "./Logo";
 
 function translateAuthError(msg) {
   if (!msg) return "خطایی رخ داد";
@@ -76,7 +77,7 @@ export default function Auth() {
     <div className="auth-screen">
       <div className="auth-card">
         <div className="brand auth-brand">
-          <span className="brand-dot" />
+          <Logo size={52} />
           <span className="brand-name">RandomChat</span>
         </div>
 

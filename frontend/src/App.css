@@ -784,12 +784,14 @@ input:focus-visible {
 }
 
 .auth-brand {
+  flex-direction: column;
   justify-content: center;
-  margin-bottom: 4px;
+  gap: 10px;
+  margin-bottom: 10px;
 }
 
 .auth-brand .brand-name {
-  font-size: 18px;
+  font-size: 19px;
 }
 
 .auth-tabs {
