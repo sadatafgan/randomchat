@@ -33,6 +33,8 @@ export default function Account({ session }) {
   const [usernameDraft, setUsernameDraft] = useState("");
   const [usernameSaving, setUsernameSaving] = useState(false);
   const [usernameError, setUsernameError] = useState("");
+  const [inviteCount, setInviteCount] = useState(0);
+  const [linkCopied, setLinkCopied] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -52,6 +54,19 @@ export default function Account({ session }) {
     setAgeRange(data?.age_range || null);
     setAvatarUrl(data?.avatar_url || null);
     setLoading(false);
+
+    const { data: count } = await supabase.rpc("invite_count", { check_id: session.user.id });
+    setInviteCount(count || 0);
+  }
+
+  function inviteLink() {
+    return `${window.location.origin}/?ref=${encodeURIComponent(username)}`;
+  }
+
+  async function copyInviteLink() {
+    await navigator.clipboard.writeText(inviteLink());
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
   }
 
   async function updateField(field, value) {
@@ -166,6 +181,22 @@ export default function Account({ session }) {
         </div>
       )}
       <p className="account-email">{session.user.email}</p>
+
+      {username && (
+        <div className="account-section invite-section">
+          <p className="section-title" style={{ textAlign: "right" }}>
+            دعوت از دوستان 🎉
+          </p>
+          <p className="invite-desc">
+            لینک اختصاصی خودت رو برای دوستات بفرست. تا الان{" "}
+            <strong>{inviteCount}</strong> نفر با لینک تو ثبت‌نام کردن.
+          </p>
+          <div className="invite-link-row">
+            <input readOnly value={inviteLink()} onFocus={(e) => e.target.select()} />
+            <button onClick={copyInviteLink}>{linkCopied ? "کپی شد ✓" : "کپی لینک"}</button>
+          </div>
+        </div>
+      )}
 
       <div className="account-section">
         <p className="section-title" style={{ textAlign: "right" }}>

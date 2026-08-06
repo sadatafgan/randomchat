@@ -49,10 +49,24 @@ export default function Auth() {
 
         const userId = data.user?.id;
         if (userId) {
+          // اگر از طریق لینک دعوت اومده، ببین دعوت‌کننده کیه
+          let invitedBy = null;
+          const refCode = sessionStorage.getItem("referral_code");
+          if (refCode) {
+            const { data: refProfile } = await supabase
+              .from("profiles")
+              .select("id")
+              .eq("username", refCode)
+              .maybeSingle();
+            invitedBy = refProfile?.id || null;
+          }
+
           const { error: profileError } = await supabase
             .from("profiles")
-            .insert({ id: userId, username: username.trim() });
+            .insert({ id: userId, username: username.trim(), invited_by: invitedBy });
           if (profileError) throw profileError;
+
+          sessionStorage.removeItem("referral_code");
         }
 
         if (!data.session) {
