@@ -1791,3 +1791,66 @@ input:focus-visible {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ===========================================================
+   ویرایش نام کاربری
+   =========================================================== */
+.username-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.username-edit-btn {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-panel);
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.username-edit-box {
+  width: 100%;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.username-edit-box input {
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--brand-violet);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  font-family: var(--font-fa);
+  font-size: 14.5px;
+  text-align: center;
+  outline: none;
+}
+
+.username-edit-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.username-edit-actions .add-btn {
+  flex: 1;
+  padding: 9px;
+  font-size: 13px;
+}
+
+.username-cancel-btn {
+  flex: 1;
+  padding: 9px;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-fa);
+  font-size: 13px;
+  cursor: pointer;
+}

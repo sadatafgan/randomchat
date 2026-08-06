@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
+import { containsBadWord } from "./lib/textFilter";
 
 const GENDER_OPTIONS = [
   { id: "unspecified", label: "نامشخص" },
@@ -28,6 +29,10 @@ export default function Account({ session }) {
   const [avatarUrl, setAvatarUrl] = useState(null);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [editingUsername, setEditingUsername] = useState(false);
+  const [usernameDraft, setUsernameDraft] = useState("");
+  const [usernameSaving, setUsernameSaving] = useState(false);
+  const [usernameError, setUsernameError] = useState("");
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -51,6 +56,42 @@ export default function Account({ session }) {
 
   async function updateField(field, value) {
     await supabase.from("profiles").update({ [field]: value }).eq("id", session.user.id);
+  }
+
+  function startEditUsername() {
+    setUsernameDraft(username);
+    setUsernameError("");
+    setEditingUsername(true);
+  }
+
+  async function saveUsername() {
+    const trimmed = usernameDraft.trim();
+    setUsernameError("");
+
+    if (!trimmed) {
+      setUsernameError("نام کاربری نمی‌تواند خالی باشد");
+      return;
+    }
+    if (containsBadWord(trimmed)) {
+      setUsernameError("این نام کاربری مناسب نیست");
+      return;
+    }
+    if (trimmed === username) {
+      setEditingUsername(false);
+      return;
+    }
+
+    setUsernameSaving(true);
+    const { error } = await supabase.from("profiles").update({ username: trimmed }).eq("id", session.user.id);
+    setUsernameSaving(false);
+
+    if (error) {
+      setUsernameError(error.message.includes("duplicate") ? "این نام کاربری قبلاً گرفته شده" : "خطا در ذخیره");
+      return;
+    }
+
+    setUsername(trimmed);
+    setEditingUsername(false);
   }
 
   async function handleAvatarPick(e) {
@@ -96,7 +137,34 @@ export default function Account({ session }) {
         onChange={handleAvatarPick}
       />
 
-      {!loading && <h2 className="account-username">{username || "بدون نام کاربری"}</h2>}
+      {!loading && !editingUsername && (
+        <div className="username-row">
+          <h2 className="account-username">{username || "بدون نام کاربری"}</h2>
+          <button className="username-edit-btn" onClick={startEditUsername} aria-label="ویرایش نام کاربری">
+            ✎
+          </button>
+        </div>
+      )}
+
+      {editingUsername && (
+        <div className="username-edit-box">
+          <input
+            type="text"
+            value={usernameDraft}
+            onChange={(e) => setUsernameDraft(e.target.value)}
+            autoFocus
+          />
+          {usernameError && <p className="auth-error">{usernameError}</p>}
+          <div className="username-edit-actions">
+            <button className="username-cancel-btn" onClick={() => setEditingUsername(false)}>
+              انصراف
+            </button>
+            <button className="add-btn" onClick={saveUsername} disabled={usernameSaving}>
+              {usernameSaving ? "..." : "ذخیره"}
+            </button>
+          </div>
+        </div>
+      )}
       <p className="account-email">{session.user.email}</p>
 
       <div className="account-section">
