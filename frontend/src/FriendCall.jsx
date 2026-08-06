@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { censorText } from "./lib/textFilter";
+import EmojiPicker from "./EmojiPicker";
 
 const ICE_SERVERS = {
   iceServers: [
@@ -78,6 +79,7 @@ export default function FriendCall({ socket, partnerId, initiator, partnerUserna
   const [connected, setConnected] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   const pcRef = useRef(null);
   const localStreamRef = useRef(null);
@@ -252,6 +254,9 @@ export default function FriendCall({ socket, partnerId, initiator, partnerUserna
         </div>
 
         <div className="controls live-controls">
+          <button onClick={() => setEmojiOpen((v) => !v)} className="emoji-toggle-btn" aria-label="ایموجی">
+            😊
+          </button>
           <input
             type="text"
             value={input}
@@ -263,6 +268,9 @@ export default function FriendCall({ socket, partnerId, initiator, partnerUserna
             <IconSend />
           </button>
         </div>
+        {emojiOpen && (
+          <EmojiPicker onSelect={(e) => setInput((prev) => prev + e)} onClose={() => setEmojiOpen(false)} />
+        )}
       </div>
     </div>
   );

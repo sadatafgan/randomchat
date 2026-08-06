@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "./lib/supabaseClient";
 import { censorText } from "./lib/textFilter";
 import { notify } from "./lib/notifications";
+import EmojiPicker from "./EmojiPicker";
 
 // مدت زمانی که بعد از آن وضعیت "در حال نوشتن" پاک می‌شود (۳ ثانیه)
 const TYPING_TIMEOUT = 3000;
@@ -10,6 +11,7 @@ export default function FriendChat({ session, friend, onBack }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [friendTyping, setFriendTyping] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
   const endRef = useRef(null);
   const typingTimerRef = useRef(null);
   const myId = session.user.id;
@@ -124,6 +126,9 @@ export default function FriendChat({ session, friend, onBack }) {
       </div>
 
       <div className="controls">
+        <button className="emoji-toggle-btn" onClick={() => setEmojiOpen((v) => !v)} aria-label="ایموجی">
+          😊
+        </button>
         <input
           value={input}
           onChange={(e) => {
@@ -135,6 +140,9 @@ export default function FriendChat({ session, friend, onBack }) {
         />
         <button className="send-btn" onClick={send}>ارسال</button>
       </div>
+      {emojiOpen && (
+        <EmojiPicker onSelect={(e) => setInput((prev) => prev + e)} onClose={() => setEmojiOpen(false)} />
+      )}
     </div>
   );
 }

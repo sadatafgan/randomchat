@@ -3,6 +3,7 @@ import { io } from "socket.io-client";
 import { supabase } from "./lib/supabaseClient";
 import { censorText } from "./lib/textFilter";
 import Logo from "./Logo";
+import EmojiPicker from "./EmojiPicker";
 
 // آدرس سرور بک‌اند
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
@@ -196,6 +197,7 @@ function RandomChat({ session }) {
   const [wantCountry, setWantCountry] = useState("all");
   const [wantAgeRange, setWantAgeRange] = useState("all");
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const [emojiOpen, setEmojiOpen] = useState(false);
 
   const wantCountryRef = useRef("all");
   const wantAgeRangeRef = useRef("all");
@@ -837,6 +839,14 @@ function RandomChat({ session }) {
           </div>
 
           <div className="controls live-controls">
+            <button
+              onClick={() => setEmojiOpen((v) => !v)}
+              disabled={status !== STATUS.CHATTING}
+              className="emoji-toggle-btn"
+              aria-label="ایموجی"
+            >
+              😊
+            </button>
             <input
               type="text"
               value={input}
@@ -854,6 +864,12 @@ function RandomChat({ session }) {
               <IconSend />
             </button>
           </div>
+          {emojiOpen && (
+            <EmojiPicker
+              onSelect={(e) => setInput((prev) => prev + e)}
+              onClose={() => setEmojiOpen(false)}
+            />
+          )}
         </div>
       </div>
     </div>
