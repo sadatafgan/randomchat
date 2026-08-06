@@ -567,7 +567,32 @@ function RandomChat({ session }) {
   }
 
   function handleAddFriend() {
-    showToast("لیست دوستان به‌زودی اضافه می‌شود 🚧");
+    if (!partnerInfoRef.current.userId) {
+      showToast("اطلاعات این کاربر در دسترس نیست");
+      setMenuOpen(false);
+      return;
+    }
+    if (!myProfileRef.current.userId) {
+      showToast("خطا در شناسایی اکانت شما");
+      setMenuOpen(false);
+      return;
+    }
+
+    supabase
+      .from("friendships")
+      .insert({
+        requester_id: myProfileRef.current.userId,
+        addressee_id: partnerInfoRef.current.userId,
+        status: "pending",
+      })
+      .then(({ error }) => {
+        if (error) {
+          showToast(error.message.includes("duplicate") ? "قبلاً درخواست فرستادی" : "خطا در ارسال درخواست");
+        } else {
+          showToast(`درخواست دوستی برای ${partnerInfoRef.current.username || "این کاربر"} فرستاده شد ✅`);
+        }
+      });
+
     setMenuOpen(false);
   }
 
@@ -645,7 +670,7 @@ function RandomChat({ session }) {
             </button>
             {menuOpen && (
               <div className="dropdown">
-                <button onClick={handleAddFriend}>
+                <button onClick={handleAddFriend} disabled={!canModerate}>
                   <IconUserPlus /> افزودن دوست
                 </button>
                 <div className="dropdown-divider" />
