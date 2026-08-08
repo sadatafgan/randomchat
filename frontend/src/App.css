@@ -2111,3 +2111,67 @@ input:focus-visible {
 .friend-chat-screen {
   position: relative;
 }
+
+/* ===========================================================
+   پنل ادمین
+   =========================================================== */
+.admin-screen {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-badge {
+  background: rgba(255, 84, 112, 0.12);
+  border: 1px solid rgba(255, 84, 112, 0.35);
+  color: var(--signal-danger);
+  font-size: 11.5px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  text-align: center;
+  font-weight: 600;
+}
+
+.admin-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-subtle);
+}
+
+.admin-row-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.admin-row-title {
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.admin-row-sub {
+  font-size: 11px;
+  color: var(--text-faint);
+  direction: ltr;
+  text-align: right;
+}
+
+.admin-banned-tag {
+  background: var(--signal-danger);
+  color: white;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 999px;
+}

@@ -10,6 +10,7 @@ import RandomChat from "./RandomChat";
 import Account from "./Account";
 import Settings from "./Settings";
 import History from "./History";
+import Admin from "./Admin";
 import FriendCall from "./FriendCall";
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3001";
@@ -53,6 +54,13 @@ function TabIcon({ id }) {
         <path d="M19.4 13a7.7 7.7 0 0 0 0-2l2-1.5-2-3.4-2.4.6a7.6 7.6 0 0 0-1.7-1L15 3h-6l-.3 2.6a7.6 7.6 0 0 0-1.7 1l-2.4-.6-2 3.4L4.6 11a7.7 7.7 0 0 0 0 2l-2 1.5 2 3.4 2.4-.6c.5.4 1.1.8 1.7 1L9 21h6l.3-2.6c.6-.2 1.2-.6 1.7-1l2.4.6 2-3.4-2-1.5z" />
       </svg>
     );
+  if (id === "admin")
+    return (
+      <svg {...common}>
+        <rect x="5" y="11" width="14" height="9" rx="2" />
+        <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+      </svg>
+    );
   return null;
 }
 
@@ -72,6 +80,7 @@ export default function App() {
 
   const [onlineIds, setOnlineIds] = useState([]);
   const [myUsername, setMyUsername] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [installPromptEvent, setInstallPromptEvent] = useState(null);
   const [incomingCall, setIncomingCall] = useState(null); // { fromSocketId, fromUserId, fromUsername }
   const [activeCall, setActiveCall] = useState(null); // { partnerId, initiator, partnerUsername }
@@ -96,10 +105,13 @@ export default function App() {
     if (!session?.user?.id) return;
     supabase
       .from("profiles")
-      .select("username")
+      .select("username, is_admin")
       .eq("id", session.user.id)
       .maybeSingle()
-      .then(({ data }) => setMyUsername(data?.username || ""));
+      .then(({ data }) => {
+        setMyUsername(data?.username || "");
+        setIsAdmin(!!data?.is_admin);
+      });
   }, [session?.user?.id]);
 
   // اتصال دائمی سبک برای وضعیت آنلاین و تماس با دوستان (جدا از سوکت چت رندوم)
@@ -291,11 +303,12 @@ export default function App() {
           {tab === "history" && <History session={session} onAddFriend={() => goTo("friends")} />}
           {tab === "account" && <Account session={session} />}
           {tab === "settings" && <Settings canInstall={!!installPromptEvent} onInstall={triggerInstall} />}
+          {tab === "admin" && isAdmin && <Admin />}
         </div>
       </div>
 
       <nav className="tab-bar bottom">
-        {TABS.map((t) => (
+        {(isAdmin ? [...TABS, { id: "admin", label: "ادمین" }] : TABS).map((t) => (
           <button key={t.id} className={tab === t.id ? "active" : ""} onClick={() => goTo(t.id)}>
             <TabIcon id={t.id} />
             <span>{t.label}</span>
